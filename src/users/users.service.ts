@@ -14,7 +14,7 @@ export class UsersService {
   extractUserData(user: Users) {
     return {
       id: user['_id'],
-      username: user['name'],
+      username: user['username'],
     };
   }
 }
