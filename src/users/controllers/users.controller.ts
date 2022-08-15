@@ -9,8 +9,9 @@ export class UsersController {
   ) {}
 
   @UseGuards(JwtAuthGuard)
-  @Get('user')
+  @Get(['/me','/']) // Meanwhile there is no why '/users' return a list of user. But, for future implementation the docs will reference only '/users/me'
   getUser(@Request() req) {
     return this.usersService.extractUserData(req.user['user']);
   }
 }
+

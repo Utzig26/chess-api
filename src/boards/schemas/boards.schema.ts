@@ -16,6 +16,12 @@ export const gameState = {
  * @example { 'username': 'Magnus.Carlsen', 'password': '***********', ... }
  */
 export const BoardsSchema = new mongoose.Schema({
+  resourceId : {
+    type: String,
+    required: true,
+    unique: true,
+  },
+
   whitePlayer: {
     type: mongoose.SchemaTypes.ObjectId,
     required: false,
@@ -27,12 +33,13 @@ export const BoardsSchema = new mongoose.Schema({
   },
 
   PGN:{
-    type: String,
+    type: [[String,Number]],
+    default:[],
   },
   FEN:{
     type: String,
   },
-  timeControl:{
+  timeControl:{ //all three attributes must be in x100 milliseconds
     increment:{
       type: Number,
     },
