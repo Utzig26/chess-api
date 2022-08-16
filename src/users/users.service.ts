@@ -13,7 +13,7 @@ export class UsersService {
   
   extractUserData(user: Users) {
     return {
-      id: user['_id'],
+      id: user['id'],
       username: user['username'],
     };
   }

@@ -44,11 +44,12 @@ export class AuthService {
    */
   async signIn(user: Users) {
     const payload = {
-            sub: user._id,
+            id: user._id,
             username: user.username,
           };
 
     return {
+      username: payload.username,
       accessToken: this.jwtService.sign(payload),
     };
   }

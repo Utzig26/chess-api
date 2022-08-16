@@ -3,21 +3,21 @@ import { Document, ObjectId } from 'mongoose';
 export interface Boards extends Document {
   readonly id: string;
   readonly resourceId: string;
-  readonly whitePlayer: ObjectId;
-  readonly blackPlayer: ObjectId;
-  readonly PGN: [[string,number]];
-  readonly FEN: string;
+  whitePlayer: ObjectId;
+  blackPlayer: ObjectId;
+  PGN: [[string,number]];
+  FEN: string;
   readonly timeControl: {
     increment: number;
     black: number;
     white: number;
   };
-  readonly status: {
+  status: {
     gameState: string;
     finishedAt: number;
     adtionalInfo: string;
   };
-  readonly drawOffer: {
+  drawOffer: {
     black: boolean;
     white: boolean;
   }

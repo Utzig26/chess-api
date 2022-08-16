@@ -10,13 +10,15 @@ export class BoardsController {
   ) {}
 
   @Get('/')
-  getBoards() {
-    
+  async getBoards() {
+    const boards = await this.boardsService.findAll()
+    return boards;
   }
 
   @Get('/:id')
-  getBoard(@Param() params) {
-    
+  async getBoard(@Param('id') id: string) {
+    const findBoard = await this.boardsService.findOne(id);
+    return findBoard;
   }
 
   @Get('/:id/moves')
@@ -36,8 +38,9 @@ export class BoardsController {
 
   @UseGuards(JwtAuthGuard)
   @Post('/:id/join')
-  joinBoards(@Param() params) {
-
+  async joinBoards(@Param('id') id: string,@Request() req) {
+    const boardJoined = await this.boardsService.joinBoard(id, req.user['user'])
+    return boardJoined;
   }
 
   @UseGuards(JwtAuthGuard)
