@@ -1,15 +1,18 @@
 import * as mongoose from 'mongoose';
+import { Chess } from 'chess.js/dist/chess'
 
 /**
  * gameState constants
  * {W: Wating, WP: Wating Player, F: Finished, A: Active}
  */
+
 export const gameState = {
   "W": "Wating for the first move.", 
   "WP": "Wating for the players connect.",
   "F": "This match has alreary finished.", 
   "A": "This match is on",
 }
+const initalFEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'
 
 /**
  * Schema of user's data to be saved in database
@@ -38,6 +41,7 @@ export const BoardsSchema = new mongoose.Schema({
   },
   FEN:{
     type: String,
+    default:initalFEN,
   },
   timeControl:{ //all three attributes must be in x100 milliseconds
     increment:{
@@ -73,6 +77,11 @@ export const BoardsSchema = new mongoose.Schema({
       type: Boolean,
       default: false,
     },
+  },
+  board : {
+    type: mongoose.SchemaTypes.Mixed,
+    default: new Chess(),
+    required: true,
   },
 }, 
 { timestamps: true }, //Mongoose will then set createdAt when the document is first inserted, and update updatedAt whenever you update the document

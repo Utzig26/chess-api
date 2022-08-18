@@ -1,4 +1,5 @@
 import { Document, ObjectId } from 'mongoose';
+import { Chess } from 'chess.js/dist/chess'
 
 export interface Boards extends Document {
   readonly id: string;
@@ -21,5 +22,6 @@ export interface Boards extends Document {
     black: boolean;
     white: boolean;
   }
+  board: Chess;
 }
 
