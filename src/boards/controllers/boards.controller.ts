@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Request, Param, Post, UseGuards, ValidationPipe } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { BoardsService } from '../boards.service';
-import { newBoardDTO } from '../dto/boards.dto';
+import { newBoardDTO, moveDTO } from '../dto/boards.dto';
 
 @Controller('boards')
 export class BoardsController {
@@ -15,15 +15,16 @@ export class BoardsController {
     return boards;
   }
 
-  @Get('/:id')
+  @Get(':id/moves')
+  async getBoardMoves(@Param('id') id: string) {
+    const moves = await this.boardsService.getPossibleMoves(id);
+    return moves;
+  }
+
+  @Get(':id')
   async getBoard(@Param('id') id: string) {
     const findBoard = await this.boardsService.findOne(id);
     return findBoard;
-  }
-
-  @Get('/:id/moves')
-  getBoardMoves(@Param() params) {
-    
   }
 
   @UseGuards(JwtAuthGuard)
@@ -45,14 +46,17 @@ export class BoardsController {
 
   @UseGuards(JwtAuthGuard)
   @Post('/:id/move')
-  move(@Param() params) {
-
+  async move(
+    @Body(ValidationPipe) move: moveDTO,
+    @Param('id') id) {
+    const board = await this.boardsService.move(id, move)
+    return board;
   }
 
   @UseGuards(JwtAuthGuard)
   @Post('/:id/resign')
   resign(@Param() params) {
-
+    
   }
 
   @UseGuards(JwtAuthGuard)
