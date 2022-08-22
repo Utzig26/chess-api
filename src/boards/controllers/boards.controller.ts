@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Request, Param, Post, UseGuards, ValidationPipe } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Request, Param, Post, UseGuards, ValidationPipe, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { BoardsService } from '../boards.service';
 import { newBoardDTO, moveDTO } from '../dto/boards.dto';
@@ -33,24 +33,35 @@ export class BoardsController {
     @Body(ValidationPipe) boardsDto: newBoardDTO,
     @Request() req,
     ): Promise<any> {
-    const createdBoard = await this.boardsService.createNewBoard(boardsDto, req.user['user'])
-    return createdBoard;
+    let createdBoard = await this.boardsService.createNewBoard(boardsDto, req.user['user'])
+    return this.boardsService.extractBoardData(createdBoard)
   }
 
   @UseGuards(JwtAuthGuard)
   @Post('/:id/join')
   async joinBoards(@Param('id') id: string,@Request() req) {
     const boardJoined = await this.boardsService.joinBoard(id, req.user['user'])
-    return boardJoined;
+    return this.boardsService.extractBoardData(boardJoined);
   }
 
   @UseGuards(JwtAuthGuard)
   @Post('/:id/move')
   async move(
     @Body(ValidationPipe) move: moveDTO,
-    @Param('id') id) {
+    @Param('id') id: string,
+    @Request() req,
+    ) {
+    
+    if(!await this.boardsService.getGameStatus(id, 'move')){
+      throw new BadRequestException();
+    }
+    if(!await this.boardsService.verifyPlayer(id, req.user['user'])){
+      throw new UnauthorizedException();
+    }
     const board = await this.boardsService.move(id, move)
-    return board;
+    return board //this.boardsService.extractBoardData(board);
+    
+    
   }
 
   @UseGuards(JwtAuthGuard)
