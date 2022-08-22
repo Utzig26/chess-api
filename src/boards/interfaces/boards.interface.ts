@@ -1,22 +1,38 @@
 import { Document, ObjectId } from 'mongoose';
 import { Chess } from 'chess.js/dist/chess'
 
+type GameState = "W" | "WP" | "F" | "A";
+
 export interface Boards extends Document {
   readonly id: string;
   readonly resourceId: string;
-  whitePlayer: ObjectId;
-  blackPlayer: ObjectId;
-  PGN: [[string,number]];
+  whitePlayer:{
+    id: ObjectId;
+    username: string;
+  };
+  blackPlayer: {
+    id: ObjectId;
+    username: string;
+  };
+  moveNumber: number;
+  PGN: [
+    {
+      moveNumber: number;
+      move: string;
+      timestamp: number;
+    }
+  ];
   FEN: string;
   readonly timeControl: {
     increment: number;
     black: number;
     white: number;
   };
+  turn: string;
   status: {
-    gameState: string;
+    gameState: GameState;
     finishedAt: number;
-    adtionalInfo: string;
+    aditionalInfo: string;
   };
   drawOffer: {
     black: boolean;

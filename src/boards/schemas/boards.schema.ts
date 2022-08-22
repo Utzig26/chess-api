@@ -6,12 +6,7 @@ import { Chess } from 'chess.js/dist/chess'
  * {W: Wating, WP: Wating Player, F: Finished, A: Active}
  */
 
-export const gameState = {
-  "W": "Wating for the first move.", 
-  "WP": "Wating for the players connect.",
-  "F": "This match has alreary finished.", 
-  "A": "This match is on",
-}
+
 const initalFEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'
 
 /**
@@ -26,23 +21,42 @@ export const BoardsSchema = new mongoose.Schema({
   },
 
   whitePlayer: {
-    type: mongoose.SchemaTypes.ObjectId,
+    username: {
+      type: String,
+    },
+    id: {
+      type: mongoose.SchemaTypes.ObjectId,
+    },
     required: false,
   },
 
-  blackPlayer:{
-    type: mongoose.SchemaTypes.ObjectId,
+  blackPlayer: {
+    username: {
+      type: String,
+    },
+    id: {
+      type: mongoose.SchemaTypes.ObjectId,
+    },
     required: false,
   },
-
+  moveNumber:{
+    type: Number,
+    default: 0,
+  },
   PGN:{
-    type: [[String,Number]],
+    type:[{
+      moveNumber: Number,
+      move: String,
+      timestamp: Number,
+    }],
     default:[],
   },
+
   FEN:{
     type: String,
     default:initalFEN,
   },
+
   timeControl:{ //all three attributes must be in x100 milliseconds
     increment:{
       type: Number,
@@ -54,17 +68,24 @@ export const BoardsSchema = new mongoose.Schema({
       type: Number,
     },
   },
+  
+  turn:{
+    type: String,
+    default: 'w',
+  },
+
   status:{
     gameState:{
       type: String,
-      default: gameState.WP,
+      default: "WP",
     },
     finishedAt:{
-      type: mongoose.SchemaTypes.Date,
+      type: Number,
       required: false,
     },
     aditionalInfo:{
       type: String,
+      default: "Wating for the players connect",
       required: false,
     },
   },
