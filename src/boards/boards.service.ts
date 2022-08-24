@@ -35,7 +35,6 @@ export class BoardsService {
   async getPossibleMoves(id: string):Promise<(string[]|Move[])[]>{
     const board = new this.boardsModel(await this.findOne(id));
     const newBoard = new Chess(board.board)
-
     try{
       return [newBoard.moves()]
     }catch(error){
@@ -151,18 +150,87 @@ export class BoardsService {
     if(type === 'join')
       return (state == 'WP')?true:false;
     
-    if(type == 'move' || type ==  'moves' || type == 'resing')
+    if(type == 'move' || type ==  'moves' || type == 'resign' || type == 'draw')
       return (state == 'W' || state == 'A')?true:false;
-    return false
+      return false
   }
 
-  async verifyPlayer(id: string, player:Users):Promise<boolean>{
+  async verifyTurnPlayer(id: string, player:Users):Promise<boolean>{
     const game = await this.findOne(id);
     if(game.turn == 'w')
       return (player['id'] == game.whitePlayer.id);
     else
       return (player['id'] == game.blackPlayer.id);
   }
+
+  async verifyPlayer(id: string, player:Users):Promise<boolean>{
+    const game = await this.findOne(id);
+      return (
+        player['id'] == game.whitePlayer.id 
+        || player['id'] == game.blackPlayer.id 
+      );
+  }
+
+  async resign(id: string, player:Users):Promise<Boards>{
+    let game = await this.findOne(id);
+    game = updateStatus(game, 'resign');
+    try {
+      await game.save();
+      return game;
+    } catch (error) {
+      throw new BadRequestException(error)
+    }
+  }
+
+  async drawRequest(id: string, player:Users):Promise<Boards>{
+    let game = await this.findOne(id);
+    const playerColor = wichPlayer(game, player);
+
+    if(playerColor == 'w')
+      game.drawOffer.white = true;
+
+    if(playerColor == 'b')
+      game.drawOffer.black = true;
+
+    if(playerColor == 'wb')
+      game.drawOffer.white = game.drawOffer.black = true;
+
+    if(game.drawOffer.black && game.drawOffer.white)
+      game = updateStatus(game, 'draw');
+    
+    try {
+      await game.save();
+      return game;
+    } catch (error) {
+      throw new BadRequestException(error)
+    }
+  }
+
+  async drawCancel(id: string, player:Users):Promise<Boards>{
+    let game = await this.findOne(id);
+    const playerColor = wichPlayer(game, player);
+    console.log(playerColor)
+    if(playerColor == 'w')
+      game.drawOffer.white = false;
+    if(playerColor == 'b')
+      game.drawOffer.black = false;
+    
+      try {
+      await game.save();
+      return game;
+    } catch (error) {
+      throw new BadRequestException(error)
+    }
+  }
+}
+
+function wichPlayer(game: Boards, player:Users){
+  if(game.whitePlayer.id == player['id'] && game.blackPlayer.id == player['id'])
+    return 'wb';
+  else if(game.whitePlayer.id == player['id'])
+    return 'w';
+  else if(game.blackPlayer.id == player['id'])
+    return 'b';
 }
 
 function updateTime(board: Boards){
@@ -201,9 +269,15 @@ function updateStatus(game: Boards, type:string){
       game.status.aditionalInfo = 'This match is on.'
       break;
 
-    case 'checkMate':
+    case 'resign':
       game.status.gameState = 'F'
-      game.status.aditionalInfo = 'This match is over in check mate.'
+      game.status.aditionalInfo = 'This match is over in resign'
+      game.status.finishedAt = Date.now()
+      break;
+
+    case 'draw':
+      game.status.gameState = 'F'
+      game.status.aditionalInfo = 'This match is over in draw by Mutual Agreement'
       game.status.finishedAt = Date.now()
       break;
 
@@ -220,21 +294,27 @@ function updateStatus(game: Boards, type:string){
       break;
 
     case 'threefoldRepetition':
-      game.status.gameState = 'A'
+      game.status.gameState = 'F'
       game.status.aditionalInfo = 'This match is over in draw by threefold repetition'
       game.status.finishedAt = Date.now()
       break;
 
     case '50-moveRule':
-      game.status.gameState = 'A'
+      game.status.gameState = 'F'
       game.status.aditionalInfo = 'This match is over in draw by 50-move rule'
+      game.status.finishedAt = Date.now()
+      break;
+
+    case 'checkMate':
+      game.status.gameState = 'F'
+      game.status.aditionalInfo = 'This match is over in check mate.'
       game.status.finishedAt = Date.now()
       break;
 
     default:
       break;
   }
-  
+
   return game;
 }
 

@@ -51,35 +51,70 @@ export class BoardsController {
     @Param('id') id: string,
     @Request() req,
     ) {
-    
+
+    if(!await this.boardsService.verifyTurnPlayer(id, req.user['user'])){
+      throw new UnauthorizedException();
+    }
+
     if(!await this.boardsService.getGameStatus(id, 'move')){
       throw new BadRequestException();
     }
-    if(!await this.boardsService.verifyPlayer(id, req.user['user'])){
-      throw new UnauthorizedException();
-    }
+
     const board = await this.boardsService.move(id, move)
-    return board //this.boardsService.extractBoardData(board);
-    
-    
+    return board //this.boardsService.extractBoardData(board);    
   }
 
   @UseGuards(JwtAuthGuard)
   @Post('/:id/resign')
-  resign(@Param() params) {
-    
+  async resign(
+    @Param('id') id: string,
+    @Request() req,
+    ) {
+
+    if(!await this.boardsService.verifyPlayer(id, req.user['user'])){
+      throw new UnauthorizedException();
+    }
+
+    if(!await this.boardsService.getGameStatus(id, 'resign')){
+      throw new BadRequestException();
+    }
+    const board = await this.boardsService.resign(id, req.user['user'])
+    return board //this.boardsService.extractBoardData(board); 
   }
 
   @UseGuards(JwtAuthGuard)
   @Post('/:id/draw')
-  offerDraw(@Param() params) {
+  async offerDraw(
+    @Param('id') id: string,
+    @Request() req,) {
 
+    if(!await this.boardsService.verifyPlayer(id, req.user['user'])){
+      throw new UnauthorizedException();
+    }
+
+    if(!await this.boardsService.getGameStatus(id, 'draw')){
+      throw new BadRequestException();
+    }
+
+    const board = await this.boardsService.drawRequest(id, req.user['user'])
+    return board //this.boardsService.extractBoardData(board); 
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete('/:id/draw')
-  cancelDraw(@Param() params) {
+  async cancelDraw(
+    @Param('id') id: string,
+    @Request() req,) {
 
-  }
+    if(!await this.boardsService.verifyPlayer(id, req.user['user'])){
+      throw new UnauthorizedException();
+    }
+
+    if(!await this.boardsService.getGameStatus(id, 'draw')){
+      throw new BadRequestException();
+    }
+    const board = await this.boardsService.drawCancel(id, req.user['user'])
+    return board //this.boardsService.extractBoardData(board); 
+}
 
 }
