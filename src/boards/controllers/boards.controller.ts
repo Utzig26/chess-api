@@ -40,6 +40,10 @@ export class BoardsController {
   @UseGuards(JwtAuthGuard)
   @Post('/:id/join')
   async joinBoards(@Param('id') id: string,@Request() req) {
+    if(!await this.boardsService.getGameStatus(id, 'join')){
+      throw new UnauthorizedException();
+    }
+    
     const boardJoined = await this.boardsService.joinBoard(id, req.user['user'])
     return this.boardsService.extractBoardData(boardJoined);
   }
