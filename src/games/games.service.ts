@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, Inject, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import mongoose, { Model, ObjectId } from 'mongoose';
-import { moveDTO, newBoardDTO } from './dto/boards.dto';
-import { Boards } from './interfaces/boards.interface';
+import { moveDTO, newGameDTO } from './dto/games.dto';
+import { Games } from './interfaces/games.interface';
 import { Users } from 'src/users/interfaces/users.interface';
 import { uniqueNamesGenerator, NumberDictionary, Config, animals, colors, adjectives } from 'unique-names-generator'
 import { Chess, Move } from 'chess.js/dist/chess'
@@ -10,74 +10,60 @@ import { UsersService } from 'src/users/users.service';
 
 
 @Injectable()
-export class BoardsService {
+export class GamesService {
   @Inject(UsersService)
   private readonly usersService: UsersService;
 
   constructor(
-    @InjectModel('Boards') private boardsModel: Model<Boards>
+    @InjectModel('Games') private gamesModel: Model<Games>
   ) {}
 
-  async findAll():Promise<any> {
-    const boards = await this.boardsModel.find({ "status.gameState": 'A'}).exec()
-    return boards;
+  async findAll():Promise<Games[]> {
+    return await this.gamesModel.find({ "status.gameState": "A"}).exec();
   }
 
-  async findOne(id: string):Promise<Boards> {
-    try{
-      const board = await this.boardsModel.findOne({ "resourceId": id }).exec();
-      return board;
-    }catch(error){
-      throw new NotFoundException(error);
-    }
+  async findOne(id: string):Promise<Games> {
+    return await this.gamesModel.findOne({ "resourceId": id }).exec();
   }
 
-  async getPossibleMoves(id: string):Promise<(string[]|Move[])[]>{
-    const board = new this.boardsModel(await this.findOne(id));
-    const newBoard = new Chess(board.board)
-    try{
-      return [newBoard.moves()]
-    }catch(error){
-      throw new NotFoundException(error);
-    }
+  async getPossibleMoves(id: string):Promise<(string[]|Move[])>{
+    const game = await this.findOne(id);
+    const newBoard = new Chess(game.board);
+    return newBoard.moves();
   }
 
-  async move(id: string, move: moveDTO):Promise<Boards>{
-    let board = await this.findOne(id);
-    const newBoard = new Chess(board.board)
+  async move(id: string, moveRequest: moveDTO):Promise<Games>{
+    let game = await this.findOne(id);
+    const newBoard = new Chess(game.board);
     
-    try{
-      if(newBoard.move(move.move)){
-        board.FEN = newBoard.fen()
-        board.turn = newBoard.turn()
-        board.moveNumber = (board.turn == 'b')?board.moveNumber+1:board.moveNumber;
-        board.PGN.push(
-          {
-            moveNumber: board.moveNumber, 
-            move: move.move, 
-            timestamp: Date.now()
-          })
-        board.board = newBoard
-        board = updateStatus(board, 'move')
-        board = updateTime(board)
-        await board.save()
-        return board
-      }else{
-        throw new BadRequestException('Move is not possible.');
-      }
-    }catch(error){
-      throw new NotFoundException(error);
-    }
+    if(!newBoard.move(moveRequest.move))
+      throw new BadRequestException('Move is not possible.');
+
+    game.FEN = newBoard.fen();
+    game.turn = newBoard.turn();
+    if(game.turn == 'b')
+      game.moveNumber += 1;
+    game.PGN.push({
+      moveNumber: game.moveNumber, 
+      move: moveRequest.move, 
+      timestamp: Date.now()
+    })
+    game.board = newBoard;
+    game = updateStatus(game, 'move');
+    game = updateTime(game);
+    await game.save();
+    return game;
+
   }
-  async createNewBoard(boardDto: newBoardDTO, user: Users):Promise<Boards> {
-    const {pieces, timeControl} = boardDto;
+  async createNewGame(gameDto: newGameDTO, user: Users):Promise<Games> {
+    const {pieces, timeControl} = gameDto;
     
     //Create a cool resourceid
     let newResourceId:String;
-    do {
-      newResourceId = generateResourceId(); 
-    } while (await this.boardsModel.findOne({ resourceId: newResourceId }).exec());
-    //Set the pieces. Randomize if the board creator don't chose one.
+    do newResourceId = generateResourceId(); 
+    while (await this.gamesModel.findOne({ resourceId: newResourceId }).exec());
+    
+    //Set the pieces. Randomize if the game creator don't chose one.
     let [whitePlayer, blackPlayer] = selectPieces(pieces, user)
     
     //Overwrite `.white` && `.black` if `.both` has been defined.
@@ -87,7 +73,7 @@ export class BoardsService {
         :[timeControl.white,timeControl.black]
       );
 
-    const newBoard = new this.boardsModel({
+    const newGame = new this.gamesModel({
       resourceId: newResourceId,
       whitePlayer: whitePlayer,
       blackPlayer: blackPlayer,
@@ -97,92 +83,29 @@ export class BoardsService {
         black: blackControl,
       }
     })
-
-    try {
-      await newBoard.save();
-      return newBoard;
-    } catch (error) {
-      throw new BadRequestException(error)
-    }
+    return await newGame.save();
   }
 
-  async joinBoard(id: string, user: Users):Promise<Boards> {
-    const userId:ObjectId = user['id'];
+  async joinGame(id: string, user: Users):Promise<Games> {
     const player = {
-      id: userId,
+      id: user['id'],
       username: user['username'],
     }
-    let board = await this.findOne(id);
-    if(board.whitePlayer.id === undefined){board.whitePlayer = player;}
-    else if(board.blackPlayer.id === undefined){board.blackPlayer = player;}
-    else{throw new UnauthorizedException();}
-    board = updateStatus(board,'join');
-    try {
-      await board.save();
-      return board;
-    } catch (error) {
-      throw new BadRequestException(error)
-    }
-  }
-
-  extractBoardData(board: Boards) {
-    const prettyBoard ={
-      id: board['resourceId'],
-      blackPlayer: board['blackPlayer']['username'],
-      whitePlayer: board['whitePlayer']['username'],
-      FEN: board['FEN'],
-      PGN: board['PGN'],
-      timecontrol: board['timeControl'],
-      status: board['status'],
-      drawOffer: board['drawOffer'],
-      turn: board['turn'],
-    }
-    return prettyBoard;
-  }
-
-  async getGameStatus(id:string, type: string):Promise<Boolean> {
-    const board = await this.findOne(id);
-    const state = board.status.gameState;
+    let game = await this.findOne(id);
+    if(game.whitePlayer.id === undefined)game.whitePlayer = player;
+    else if(game.blackPlayer.id === undefined)game.blackPlayer = player;
     
-    if(state == 'F')
-      return false;
-
-    if(type === 'join')
-      return (state == 'WP')?true:false;
-    
-    if(type == 'move' || type ==  'moves' || type == 'resign' || type == 'draw')
-      return (state == 'W' || state == 'A')?true:false;
-      return false
+    game = updateStatus(game,'join');
+    return await game.save();
   }
 
-  async verifyTurnPlayer(id: string, player:Users):Promise<boolean>{
-    const game = await this.findOne(id);
-    if(game.turn == 'w')
-      return (player['id'] == game.whitePlayer.id);
-    else
-      return (player['id'] == game.blackPlayer.id);
-  }
-
-  async verifyPlayer(id: string, player:Users):Promise<boolean>{
-    const game = await this.findOne(id);
-      return (
-        player['id'] == game.whitePlayer.id 
-        || player['id'] == game.blackPlayer.id 
-      );
-  }
-
-  async resign(id: string, player:Users):Promise<Boards>{
+  async resign(id: string, player:Users):Promise<Games>{
     let game = await this.findOne(id);
     game = updateStatus(game, 'resign');
-    try {
-      await game.save();
-      return game;
-    } catch (error) {
-      throw new BadRequestException(error)
-    }
+    return await game.save();
   }
 
-  async drawRequest(id: string, player:Users):Promise<Boards>{
+  async drawRequest(id: string, player:Users):Promise<Games>{
     let game = await this.findOne(id);
     const playerColor = wichPlayer(game, player);
 
@@ -197,34 +120,67 @@ export class BoardsService {
 
     if(game.drawOffer.black && game.drawOffer.white)
       game = updateStatus(game, 'draw');
-    
-    try {
-      await game.save();
-      return game;
-    } catch (error) {
-      throw new BadRequestException(error)
-    }
+
+    return game.save();
   }
 
-  async drawCancel(id: string, player:Users):Promise<Boards>{
+  async drawCancel(id: string, player:Users):Promise<Games>{
     let game = await this.findOne(id);
     const playerColor = wichPlayer(game, player);
-    console.log(playerColor)
+    
     if(playerColor == 'w')
       game.drawOffer.white = false;
     if(playerColor == 'b')
       game.drawOffer.black = false;
-    
-      try {
-      await game.save();
-      return game;
-    } catch (error) {
-      throw new BadRequestException(error)
+
+    return await game.save();
+  }
+
+  async extractGameData(game: Games):Promise<Object> {
+    const prettyGame ={
+      id: game['resourceId'],
+      blackPlayer: game['blackPlayer']['username'],
+      whitePlayer: game['whitePlayer']['username'],
+      FEN: game['FEN'],
+      PGN: game['PGN'],
+      timecontrol: game['timeControl'],
+      status: game['status'],
+      drawOffer: game['drawOffer'],
+      turn: game['turn'],
     }
+    return prettyGame;
+  }
+
+  async getGameStatus(id:string, type: string):Promise<Boolean> {
+    const game = await this.findOne(id);
+    const state = game.status.gameState;
+    
+    if(state == 'F')
+      return false;
+
+    if(type === 'join')
+      return (state == 'WP');
+    
+    if(type == 'move' || type ==  'moves' || type == 'resign' || type == 'draw')
+      return (state == 'W' || state == 'A');
+    return false
+  }
+
+  async verifyTurnPlayer(id: string, player:Users):Promise<boolean>{
+    const game = await this.findOne(id);
+    if(game.turn == 'w')
+      return (player['id'] == game.whitePlayer.id);
+    else
+      return (player['id'] == game.blackPlayer.id);
+  }
+
+  async verifyPlayer(id: string, player:Users):Promise<boolean>{
+    const game = await this.findOne(id);
+    return (player['id'] == game.whitePlayer.id || player['id'] == game.blackPlayer.id);
   }
 }
 
-function wichPlayer(game: Boards, player:Users){
+function wichPlayer(game: Games, player:Users){
   if(game.whitePlayer.id == player['id'] && game.blackPlayer.id == player['id'])
     return 'wb';
   else if(game.whitePlayer.id == player['id'])
@@ -233,19 +189,19 @@ function wichPlayer(game: Boards, player:Users){
     return 'b';
 }
 
-function updateTime(board: Boards){
-  const moves = board.PGN.slice(-2)
-  if (moves.length === 1){return board;}
+function updateTime(game: Games){
+  const moves = game.PGN.slice(-2)
+  if (moves.length === 1){return game;}
   
-  const timeSpent = board.timeControl.increment - (moves[1].timestamp - moves[0].timestamp);
+  const timeSpent = game.timeControl.increment - (moves[1].timestamp - moves[0].timestamp);
 
-  (board.turn == 'w')?
-  board.timeControl.white += timeSpent:
-  board.timeControl.black += timeSpent;
-  return board;
+  (game.turn == 'w')?
+    game.timeControl.white += timeSpent:
+    game.timeControl.black += timeSpent;
+  return game;
 }
 
-function updateStatus(game: Boards, type:string){
+function updateStatus(game: Games, type:string){
   const board = new Chess(game.board)
   if(board.isCheckmate())
     type = 'checkMate';
@@ -318,17 +274,11 @@ function updateStatus(game: Boards, type:string){
   return game;
 }
 
-
 function selectPieces(pieces, user){
-  const objectId = new mongoose.Types.ObjectId(user['id']);
   const player ={
-    id: objectId,
+    id: user['id'],
     username: user['username'],
   };
-
-  if (pieces) pieces = pieces.toLowerCase();
-  if (pieces =='white') pieces = 'w';
-  else if (pieces =='black') pieces = 'b';
 
   switch (pieces) {
     case 'w':

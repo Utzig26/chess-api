@@ -3,7 +3,7 @@ import { Chess } from 'chess.js/dist/chess'
 
 type GameState = "W" | "WP" | "F" | "A";
 
-export interface Boards extends Document {
+export interface Games extends Document {
   readonly id: string;
   readonly resourceId: string;
   whitePlayer:{

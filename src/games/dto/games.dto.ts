@@ -40,7 +40,7 @@ class timeControl{
   both: number
 }
 
-export class newBoardDTO {
+export class newGameDTO {
   @IsOptional()
   @IsString()
   @IsIn(PIECES)
