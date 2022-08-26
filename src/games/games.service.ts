@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, Inject, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import mongoose, { Model, ObjectId } from 'mongoose';
-import { moveDTO, newBoardDTO } from './dto/boards.dto';
-import { Boards } from './interfaces/boards.interface';
+import { moveDTO, newGameDTO } from './dto/games.dto';
+import { Games } from './interfaces/games.interface';
 import { Users } from 'src/users/interfaces/users.interface';
 import { uniqueNamesGenerator, NumberDictionary, Config, animals, colors, adjectives } from 'unique-names-generator'
 import { Chess, Move } from 'chess.js/dist/chess'
@@ -10,60 +10,60 @@ import { UsersService } from 'src/users/users.service';
 
 
 @Injectable()
-export class BoardsService {
+export class GamesService {
   @Inject(UsersService)
   private readonly usersService: UsersService;
 
   constructor(
-    @InjectModel('Boards') private boardsModel: Model<Boards>
+    @InjectModel('Games') private gamesModel: Model<Games>
   ) {}
 
-  async findAll():Promise<Boards[]> {
-    return await this.boardsModel.find({ "status.gameState": "A"}).exec();
+  async findAll():Promise<Games[]> {
+    return await this.gamesModel.find({ "status.gameState": "A"}).exec();
   }
 
-  async findOne(id: string):Promise<Boards> {
-    return await this.boardsModel.findOne({ "resourceId": id }).exec();
+  async findOne(id: string):Promise<Games> {
+    return await this.gamesModel.findOne({ "resourceId": id }).exec();
   }
 
   async getPossibleMoves(id: string):Promise<(string[]|Move[])>{
-    const board = await this.findOne(id);
-    const newBoard = new Chess(board.board);
+    const game = await this.findOne(id);
+    const newBoard = new Chess(game.board);
     return newBoard.moves();
   }
 
-  async move(id: string, move: moveDTO):Promise<Boards>{
-    let board = await this.findOne(id);
-    const newBoard = new Chess(board.board);
+  async move(id: string, moveRequest: moveDTO):Promise<Games>{
+    let game = await this.findOne(id);
+    const newBoard = new Chess(game.board);
     
-    if(!newBoard.move(move.move))
+    if(!newBoard.move(moveRequest.move))
       throw new BadRequestException('Move is not possible.');
 
-    board.FEN = newBoard.fen();
-    board.turn = newBoard.turn();
-    if(board.turn == 'b')
-      board.moveNumber += 1;
-    board.PGN.push({
-      moveNumber: board.moveNumber, 
-      move: move.move, 
+    game.FEN = newBoard.fen();
+    game.turn = newBoard.turn();
+    if(game.turn == 'b')
+      game.moveNumber += 1;
+    game.PGN.push({
+      moveNumber: game.moveNumber, 
+      move: moveRequest.move, 
       timestamp: Date.now()
     })
-    board.board = newBoard;
-    board = updateStatus(board, 'move');
-    board = updateTime(board);
-    await board.save();
-    return board;
+    game.board = newBoard;
+    game = updateStatus(game, 'move');
+    game = updateTime(game);
+    await game.save();
+    return game;
 
   }
-  async createNewBoard(boardDto: newBoardDTO, user: Users):Promise<Boards> {
-    const {pieces, timeControl} = boardDto;
+  async createNewGame(gameDto: newGameDTO, user: Users):Promise<Games> {
+    const {pieces, timeControl} = gameDto;
     
     //Create a cool resourceid
     let newResourceId:String;
     do newResourceId = generateResourceId(); 
-    while (await this.boardsModel.findOne({ resourceId: newResourceId }).exec());
+    while (await this.gamesModel.findOne({ resourceId: newResourceId }).exec());
     
-    //Set the pieces. Randomize if the board creator don't chose one.
+    //Set the pieces. Randomize if the game creator don't chose one.
     let [whitePlayer, blackPlayer] = selectPieces(pieces, user)
     
     //Overwrite `.white` && `.black` if `.both` has been defined.
@@ -73,7 +73,7 @@ export class BoardsService {
         :[timeControl.white,timeControl.black]
       );
 
-    const newBoard = new this.boardsModel({
+    const newGame = new this.gamesModel({
       resourceId: newResourceId,
       whitePlayer: whitePlayer,
       blackPlayer: blackPlayer,
@@ -83,29 +83,29 @@ export class BoardsService {
         black: blackControl,
       }
     })
-    return await newBoard.save();
+    return await newGame.save();
   }
 
-  async joinBoard(id: string, user: Users):Promise<Boards> {
+  async joinGame(id: string, user: Users):Promise<Games> {
     const player = {
       id: user['id'],
       username: user['username'],
     }
-    let board = await this.findOne(id);
-    if(board.whitePlayer.id === undefined)board.whitePlayer = player;
-    else if(board.blackPlayer.id === undefined)board.blackPlayer = player;
+    let game = await this.findOne(id);
+    if(game.whitePlayer.id === undefined)game.whitePlayer = player;
+    else if(game.blackPlayer.id === undefined)game.blackPlayer = player;
     
-    board = updateStatus(board,'join');
-    return await board.save();
+    game = updateStatus(game,'join');
+    return await game.save();
   }
 
-  async resign(id: string, player:Users):Promise<Boards>{
+  async resign(id: string, player:Users):Promise<Games>{
     let game = await this.findOne(id);
     game = updateStatus(game, 'resign');
     return await game.save();
   }
 
-  async drawRequest(id: string, player:Users):Promise<Boards>{
+  async drawRequest(id: string, player:Users):Promise<Games>{
     let game = await this.findOne(id);
     const playerColor = wichPlayer(game, player);
 
@@ -124,7 +124,7 @@ export class BoardsService {
     return game.save();
   }
 
-  async drawCancel(id: string, player:Users):Promise<Boards>{
+  async drawCancel(id: string, player:Users):Promise<Games>{
     let game = await this.findOne(id);
     const playerColor = wichPlayer(game, player);
     
@@ -136,24 +136,24 @@ export class BoardsService {
     return await game.save();
   }
 
-  async extractBoardData(board: Boards):Promise<Object> {
-    const prettyBoard ={
-      id: board['resourceId'],
-      blackPlayer: board['blackPlayer']['username'],
-      whitePlayer: board['whitePlayer']['username'],
-      FEN: board['FEN'],
-      PGN: board['PGN'],
-      timecontrol: board['timeControl'],
-      status: board['status'],
-      drawOffer: board['drawOffer'],
-      turn: board['turn'],
+  async extractGameData(game: Games):Promise<Object> {
+    const prettyGame ={
+      id: game['resourceId'],
+      blackPlayer: game['blackPlayer']['username'],
+      whitePlayer: game['whitePlayer']['username'],
+      FEN: game['FEN'],
+      PGN: game['PGN'],
+      timecontrol: game['timeControl'],
+      status: game['status'],
+      drawOffer: game['drawOffer'],
+      turn: game['turn'],
     }
-    return prettyBoard;
+    return prettyGame;
   }
 
   async getGameStatus(id:string, type: string):Promise<Boolean> {
-    const board = await this.findOne(id);
-    const state = board.status.gameState;
+    const game = await this.findOne(id);
+    const state = game.status.gameState;
     
     if(state == 'F')
       return false;
@@ -180,7 +180,7 @@ export class BoardsService {
   }
 }
 
-function wichPlayer(game: Boards, player:Users){
+function wichPlayer(game: Games, player:Users){
   if(game.whitePlayer.id == player['id'] && game.blackPlayer.id == player['id'])
     return 'wb';
   else if(game.whitePlayer.id == player['id'])
@@ -189,19 +189,19 @@ function wichPlayer(game: Boards, player:Users){
     return 'b';
 }
 
-function updateTime(board: Boards){
-  const moves = board.PGN.slice(-2)
-  if (moves.length === 1){return board;}
+function updateTime(game: Games){
+  const moves = game.PGN.slice(-2)
+  if (moves.length === 1){return game;}
   
-  const timeSpent = board.timeControl.increment - (moves[1].timestamp - moves[0].timestamp);
+  const timeSpent = game.timeControl.increment - (moves[1].timestamp - moves[0].timestamp);
 
-  (board.turn == 'w')?
-    board.timeControl.white += timeSpent:
-    board.timeControl.black += timeSpent;
-  return board;
+  (game.turn == 'w')?
+    game.timeControl.white += timeSpent:
+    game.timeControl.black += timeSpent;
+  return game;
 }
 
-function updateStatus(game: Boards, type:string){
+function updateStatus(game: Games, type:string){
   const board = new Chess(game.board)
   if(board.isCheckmate())
     type = 'checkMate';

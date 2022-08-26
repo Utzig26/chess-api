@@ -13,7 +13,7 @@ const initalFEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'
  * Schema of user's data to be saved in database
  * @example { 'username': 'Magnus.Carlsen', 'password': '***********', ... }
  */
-export const BoardsSchema = new mongoose.Schema({
+export const GamesSchema = new mongoose.Schema({
   resourceId : {
     type: String,
     required: true,
