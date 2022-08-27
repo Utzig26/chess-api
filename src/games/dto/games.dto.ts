@@ -1,18 +1,19 @@
 import {
   IsString,
-  
   IsIn,
   IsOptional,
   Max,
   Min,
   IsNumber,
   ValidateNested,
+  IsNotEmptyObject,
+  Matches,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
 const PIECES = ['w','b','white','black'];
 
-export class timeControl{
+class timeControl{
   @Type(() => Number)
   @IsNumber()
   @Min(0)
@@ -39,13 +40,20 @@ export class timeControl{
   both: number
 }
 
-export class newBoardDTO {
+export class newGameDTO {
   @IsOptional()
   @IsString()
   @IsIn(PIECES)
   pieces: string;
 
   @ValidateNested()
+  @IsNotEmptyObject()
   @Type(() => timeControl)
   timeControl: timeControl;
+}
+
+export class moveDTO {
+  @IsString()
+  @Matches(/^([PNBRQK]?[a-h]?[1-8]?[xX-]?[a-h][1-8](=[NBRQ]| ?e\.p\.)?|^O-O(?:-O)?)[+#$]?$/, {message: 'Invalid move.'})
+  move: string
 }
