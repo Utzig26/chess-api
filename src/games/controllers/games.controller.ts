@@ -21,7 +21,8 @@ export class GamesController {
       @Param('id') id: string
     ){
     try{
-      const game = await this.gamesService.findOne(id);
+      let game = await this.gamesService.findOne(id);
+      game = await this.gamesService.clock(game, Date.now())
       return game;
     }catch(e){
       throw new HttpException('Game not found.', HttpStatus.NOT_FOUND);
@@ -81,10 +82,12 @@ export class GamesController {
     @Param('id') id: string,
     @Request() req,
     ) {
-    const game = await this.gamesService.findOne(id)
+    let game = await this.gamesService.findOne(id)
     if(!game) 
       throw new HttpException('Game not found.', HttpStatus.NOT_FOUND);
 
+    game = await this.gamesService.clock(game, Date.now())
+    
     if(!await this.gamesService.verifyPlayer(game, req.user['user']))
       throw new HttpException('You are not playing this game.', HttpStatus.FORBIDDEN);
     
@@ -92,9 +95,12 @@ export class GamesController {
       throw new HttpException('It is not your turn.', HttpStatus.FORBIDDEN);
 
     if(!await this.gamesService.getGameStatus(game, 'move'))
-      throw new HttpException('Game not found.', HttpStatus.NOT_FOUND);
+      throw new HttpException('Game is not playable.', HttpStatus.FORBIDDEN);
     
     const newGame = await this.gamesService.move(game, move)
+    
+    if(!newGame)
+      throw new BadRequestException('Move is not possible.');
     return newGame //this.gamesService.extractGameData(game);    
   }
 
@@ -104,9 +110,10 @@ export class GamesController {
     @Param('id') id: string,
     @Request() req,
     ) {
-      const game = await this.gamesService.findOne(id)
-      if(!game) 
-        throw new HttpException('Game not found.', HttpStatus.NOT_FOUND);
+    const game = await this.gamesService.findOne(id)
+    if(!game) 
+      throw new HttpException('Game not found.', HttpStatus.NOT_FOUND);
+
     if(!await this.gamesService.verifyPlayer(game, req.user['user'])){
       throw new UnauthorizedException();
     }
