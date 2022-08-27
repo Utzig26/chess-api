@@ -26,14 +26,12 @@ export class GamesService {
     return await this.gamesModel.findOne({ "resourceId": id }).exec();
   }
 
-  async getPossibleMoves(id: string):Promise<(string[]|Move[])>{
-    const game = await this.findOne(id);
+  async getPossibleMoves(game: Games):Promise<(string[]|Move[])>{
     const newBoard = new Chess(game.board);
     return newBoard.moves();
   }
 
-  async move(id: string, moveRequest: moveDTO):Promise<Games>{
-    let game = await this.findOne(id);
+  async move(game: Games, moveRequest: moveDTO):Promise<Games>{
     const newBoard = new Chess(game.board);
     
     if(!newBoard.move(moveRequest.move))
@@ -86,12 +84,12 @@ export class GamesService {
     return await newGame.save();
   }
 
-  async joinGame(id: string, user: Users):Promise<Games> {
+  async joinGame(game: Games, user: Users):Promise<Games> {
     const player = {
       id: user['id'],
       username: user['username'],
     }
-    let game = await this.findOne(id);
+    
     if(game.whitePlayer.id === undefined)game.whitePlayer = player;
     else if(game.blackPlayer.id === undefined)game.blackPlayer = player;
     
@@ -99,14 +97,12 @@ export class GamesService {
     return await game.save();
   }
 
-  async resign(id: string, player:Users):Promise<Games>{
-    let game = await this.findOne(id);
+  async resign(game: Games, player:Users):Promise<Games>{
     game = updateStatus(game, 'resign');
     return await game.save();
   }
 
-  async drawRequest(id: string, player:Users):Promise<Games>{
-    let game = await this.findOne(id);
+  async drawRequest(game: Games, player:Users):Promise<Games>{
     const playerColor = wichPlayer(game, player);
 
     if(playerColor == 'w')
@@ -124,8 +120,7 @@ export class GamesService {
     return game.save();
   }
 
-  async drawCancel(id: string, player:Users):Promise<Games>{
-    let game = await this.findOne(id);
+  async drawCancel(game: Games, player:Users):Promise<Games>{
     const playerColor = wichPlayer(game, player);
     
     if(playerColor == 'w')
@@ -151,8 +146,7 @@ export class GamesService {
     return prettyGame;
   }
 
-  async getGameStatus(id:string, type: string):Promise<Boolean> {
-    const game = await this.findOne(id);
+  async getGameStatus(game:Games, type: string):Promise<Boolean> {
     const state = game.status.gameState;
     
     if(state == 'F')
@@ -166,16 +160,14 @@ export class GamesService {
     return false
   }
 
-  async verifyTurnPlayer(id: string, player:Users):Promise<boolean>{
-    const game = await this.findOne(id);
+  async verifyTurnPlayer(game: Games, player:Users):Promise<boolean>{
     if(game.turn == 'w')
       return (player['id'] == game.whitePlayer.id);
     else
       return (player['id'] == game.blackPlayer.id);
   }
 
-  async verifyPlayer(id: string, player:Users):Promise<boolean>{
-    const game = await this.findOne(id);
+  async verifyPlayer(game: Games, player:Users):Promise<boolean>{
     return (player['id'] == game.whitePlayer.id || player['id'] == game.blackPlayer.id);
   }
 }
