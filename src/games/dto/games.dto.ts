@@ -11,7 +11,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
-const PIECES = ['w','b','white','black'];
+const PIECES = ['w','b'];
 
 class timeControl{
   @Type(() => Number)
@@ -31,13 +31,6 @@ class timeControl{
   @Min(10)
   @Max(5400)
   white: number;
-
-  @IsOptional() //it overwrite white and black attribute
-  @Type(() => Number)
-  @IsNumber()
-  @Min(10)
-  @Max(5400)
-  both: number
 }
 
 export class newGameDTO {

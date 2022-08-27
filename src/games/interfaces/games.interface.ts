@@ -19,7 +19,7 @@ export interface Games extends Document {
     {
       moveNumber: number;
       move: string;
-      timestamp: number;
+      timestemp: number;
     }
   ];
   FEN: string;
@@ -27,17 +27,23 @@ export interface Games extends Document {
     increment: number;
     black: number;
     white: number;
+    turnTime: number;
   };
   turn: string;
   status: {
     gameState: GameState;
     finishedAt: number;
     aditionalInfo: string;
+    result: string;
   };
   drawOffer: {
     black: boolean;
     white: boolean;
   }
+  resignRequest:{
+    player:string;
+    timeStemp: number;
+  };
   board: Chess;
 }
 
