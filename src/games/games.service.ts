@@ -7,12 +7,13 @@ import { Users } from 'src/users/interfaces/users.interface';
 import { uniqueNamesGenerator, NumberDictionary, Config, animals, colors, adjectives } from 'unique-names-generator'
 import { Chess, Move } from 'chess.js/dist/chess'
 import { UsersService } from 'src/users/users.service';
+//import { SSEService } from 'src/sse/sse.service';
 
 
 @Injectable()
 export class GamesService {
-  @Inject(UsersService)
-  private readonly usersService: UsersService;
+  // @Inject(SSEService)
+  // private sseService: SSEService;
 
   constructor(
     @InjectModel('Games') private gamesModel: Model<Games>
@@ -205,7 +206,10 @@ function wichPlayer(game: Games, player:Users){
 function updateTimeControl(game: Games){
   const moves = game.PGN.slice(-2)
   
-  if (moves.length <= 1){return game;}
+  if (moves.length === 1){
+    game.timeControl.turnTime = game.timeControl.black;
+    return game;
+  }
 
   const timeSpent = game.timeControl.increment - (moves[1].timestemp - moves[0].timestemp) / 1000;
 

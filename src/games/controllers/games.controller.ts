@@ -1,15 +1,28 @@
-import { Body, Controller, Delete, Get, Request, Param, Post, UseGuards, ValidationPipe, BadRequestException, UnauthorizedException, HttpException, HttpStatus } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Request, Param, Post, UseGuards, ValidationPipe, BadRequestException, UnauthorizedException, HttpException, HttpStatus, Sse } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { GamesService } from '../games.service';
 import { newGameDTO, moveDTO } from '../dto/games.dto';
 import { Games } from '../interfaces/games.interface';
+import { SSEService } from 'src/sse/sse.service';
 
 @Controller('games')
 export class GamesController {
   constructor(
-    private gamesService: GamesService
+    private gamesService: GamesService,
+    private sseService: SSEService
   ) {}
 
+  @Sse(':id/sse')
+  subscribeToGame(
+    @Param('id') id: string
+  ) {
+    const game = this.gamesService.findOne(id)
+    if(!game) 
+      throw new HttpException('Game not found.', HttpStatus.NOT_FOUND);
+
+    return this.sseService.subscribe(id);
+  }
+  
   @Get('/')
   async getGames() {
     const games = await this.gamesService.findAll()
@@ -101,6 +114,7 @@ export class GamesController {
     
     if(!newGame)
       throw new BadRequestException('Move is not possible.');
+    this.sseService.emit(game.resourceId, game)
     return newGame //this.gamesService.extractGameData(game);    
   }
 
