@@ -39,15 +39,17 @@ export const GamesSchema = new mongoose.Schema({
     },
     required: false,
   },
+  
   moveNumber:{
     type: Number,
     default: 0,
   },
+
   PGN:{
     type:[{
       moveNumber: Number,
       move: String,
-      timestamp: Number,
+      timestemp: Number,
     }],
     default:[],
   },
@@ -57,7 +59,7 @@ export const GamesSchema = new mongoose.Schema({
     default:initalFEN,
   },
 
-  timeControl:{ //all three attributes must be in x100 milliseconds
+  timeControl:{ //all three attributes must be in seconds 
     increment:{
       type: Number,
     },
@@ -67,6 +69,10 @@ export const GamesSchema = new mongoose.Schema({
     white:{
       type: Number,
     },
+    turnTime:{
+      type: Number,
+      required: false,
+    }
   },
   
   turn:{
@@ -79,8 +85,8 @@ export const GamesSchema = new mongoose.Schema({
       type: String,
       default: "WP",
     },
-    finishedAt:{
-      type: Number,
+    result:{
+      type: String,
       required: false,
     },
     aditionalInfo:{
@@ -88,7 +94,12 @@ export const GamesSchema = new mongoose.Schema({
       default: "Wating for the players connect",
       required: false,
     },
+    finishedAt:{
+      type: Number,
+      required: false,
+    },
   },
+
   drawOffer:{
     black:{
       type: Boolean,
@@ -99,6 +110,18 @@ export const GamesSchema = new mongoose.Schema({
       default: false,
     },
   },
+
+  resignRequest:{
+    player:{
+      type: String,
+      required: false,
+    },
+    timeStemp:{
+      type: Number,
+      required: false,
+    },
+  },
+
   board : {
     type: mongoose.SchemaTypes.Mixed,
     default: new Chess(),

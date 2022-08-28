@@ -33,26 +33,26 @@ export class GamesService {
 
   async move(game: Games, moveRequest: moveDTO):Promise<Games>{
     const newBoard = new Chess(game.board);
-    
-    if(!newBoard.move(moveRequest.move))
-      throw new BadRequestException('Move is not possible.');
-
+    const move = newBoard.move(moveRequest.move) 
+    if(!move)
+      return null
+      
     game.FEN = newBoard.fen();
+    game.PGN.push({
+      moveNumber: game.moveNumber,
+      move: move.san,
+      timestemp: Date.now()
+    })
+    game = updateTimeControl(game);
     game.turn = newBoard.turn();
     if(game.turn == 'b')
       game.moveNumber += 1;
-    game.PGN.push({
-      moveNumber: game.moveNumber, 
-      move: moveRequest.move, 
-      timestamp: Date.now()
-    })
     game.board = newBoard;
     game = updateStatus(game, 'move');
-    game = updateTime(game);
     await game.save();
     return game;
-
   }
+  
   async createNewGame(gameDto: newGameDTO, user: Users):Promise<Games> {
     const {pieces, timeControl} = gameDto;
     
@@ -63,23 +63,12 @@ export class GamesService {
     
     //Set the pieces. Randomize if the game creator don't chose one.
     let [whitePlayer, blackPlayer] = selectPieces(pieces, user)
-    
-    //Overwrite `.white` && `.black` if `.both` has been defined.
-    let [whiteControl, blackControl] = (
-      timeControl.both?
-        Array(2).fill(timeControl.both)
-        :[timeControl.white,timeControl.black]
-      );
 
     const newGame = new this.gamesModel({
       resourceId: newResourceId,
       whitePlayer: whitePlayer,
       blackPlayer: blackPlayer,
-      timeControl: {
-        increment: timeControl.increment,
-        white: whiteControl,
-        black: blackControl,
-      }
+      timeControl: timeControl,
     })
     return await newGame.save();
   }
@@ -98,13 +87,16 @@ export class GamesService {
   }
 
   async resign(game: Games, player:Users):Promise<Games>{
+    game.resignRequest.player = wichPlayer(game, player);
+    game.resignRequest.timeStemp = Date.now()
     game = updateStatus(game, 'resign');
+    game = await this.clock(game, game.resignRequest.timeStemp)
     return await game.save();
   }
 
   async drawRequest(game: Games, player:Users):Promise<Games>{
     const playerColor = wichPlayer(game, player);
-
+    
     if(playerColor == 'w')
       game.drawOffer.white = true;
 
@@ -114,20 +106,22 @@ export class GamesService {
     if(playerColor == 'wb')
       game.drawOffer.white = game.drawOffer.black = true;
 
-    if(game.drawOffer.black && game.drawOffer.white)
+      if(game.drawOffer.black && game.drawOffer.white)
       game = updateStatus(game, 'draw');
-
-    return game.save();
+      
+    game = await this.clock(game, Date.now())
+    return await game.save();
   }
 
   async drawCancel(game: Games, player:Users):Promise<Games>{
     const playerColor = wichPlayer(game, player);
-    
+
     if(playerColor == 'w')
       game.drawOffer.white = false;
     if(playerColor == 'b')
       game.drawOffer.black = false;
-
+    
+    game = await this.clock(game, Date.now())
     return await game.save();
   }
 
@@ -170,6 +164,33 @@ export class GamesService {
   async verifyPlayer(game: Games, player:Users):Promise<boolean>{
     return (player['id'] == game.whitePlayer.id || player['id'] == game.blackPlayer.id);
   }
+
+  async clock(game: Games, time: number): Promise<Games>{
+    const moves = game.PGN.slice(-2)
+    
+    if(moves.length === 0)
+      return game;
+
+    const timeDifference = (time - moves[0].timestemp)/1000;
+    const timeRemaining = game.timeControl.turnTime - timeDifference;
+
+    if(game.turn == 'w'){
+      if(timeRemaining <= 0){
+        game.timeControl.white = 0;
+        game = updateStatus(game, 'timedOut');
+      }else{
+        game.timeControl.white = timeRemaining
+      }
+    }else if(game.turn == 'b'){
+      if(timeRemaining <= 0){
+        game.timeControl.black = 0;
+        game = updateStatus(game, 'timedOut');
+      }else{
+        game.timeControl.black = timeRemaining
+      }
+    }
+    return await game.save();
+  }
 }
 
 function wichPlayer(game: Games, player:Users){
@@ -181,19 +202,25 @@ function wichPlayer(game: Games, player:Users){
     return 'b';
 }
 
-function updateTime(game: Games){
+function updateTimeControl(game: Games){
   const moves = game.PGN.slice(-2)
-  if (moves.length === 1){return game;}
   
-  const timeSpent = game.timeControl.increment - (moves[1].timestamp - moves[0].timestamp);
+  if (moves.length <= 1){return game;}
 
-  (game.turn == 'w')?
-    game.timeControl.white += timeSpent:
-    game.timeControl.black += timeSpent;
+  const timeSpent = game.timeControl.increment - (moves[1].timestemp - moves[0].timestemp) / 1000;
+
+  if(game.turn == 'w'){
+    game.timeControl.white += parseFloat(timeSpent.toFixed(3));
+    game.timeControl.turnTime = game.timeControl.black;
+  }else{
+    game.timeControl.black += parseFloat(timeSpent.toFixed(3));
+    game.timeControl.turnTime = game.timeControl.white;
+  }
+  
   return game;
 }
 
-function updateStatus(game: Games, type:string){
+function updateStatus(game: Games, type: string){
   const board = new Chess(game.board)
   if(board.isCheckmate())
     type = 'checkMate';
@@ -217,46 +244,61 @@ function updateStatus(game: Games, type:string){
       game.status.aditionalInfo = 'This match is on.'
       break;
 
-    case 'resign':
-      game.status.gameState = 'F'
-      game.status.aditionalInfo = 'This match is over in resign'
-      game.status.finishedAt = Date.now()
-      break;
-
     case 'draw':
       game.status.gameState = 'F'
       game.status.aditionalInfo = 'This match is over in draw by Mutual Agreement'
       game.status.finishedAt = Date.now()
+      game.status.result = 'Draw'
       break;
 
     case 'insufficientMaterial':
       game.status.gameState = 'F'
       game.status.aditionalInfo = 'This match is over in draw by insufficient material.'
       game.status.finishedAt = Date.now()
+      game.status.result = 'Draw'
       break;
 
     case 'stalemate':
       game.status.gameState = 'F'
       game.status.aditionalInfo = 'This match is over in draw by stalemate.'
       game.status.finishedAt = Date.now()
+      game.status.result = 'Draw'
       break;
 
     case 'threefoldRepetition':
       game.status.gameState = 'F'
-      game.status.aditionalInfo = 'This match is over in draw by threefold repetition'
+      game.status.aditionalInfo = 'This match is over in draw by threefold repetition.'
       game.status.finishedAt = Date.now()
+      game.status.result = 'Draw'
       break;
 
     case '50-moveRule':
       game.status.gameState = 'F'
-      game.status.aditionalInfo = 'This match is over in draw by 50-move rule'
+      game.status.aditionalInfo = 'This match is over in draw by 50-move rule.'
       game.status.finishedAt = Date.now()
+      game.status.result = 'Draw'
       break;
 
     case 'checkMate':
       game.status.gameState = 'F'
       game.status.aditionalInfo = 'This match is over in check mate.'
       game.status.finishedAt = Date.now()
+      game.status.result = (game.turn=='w')?'Black wins':'White wins';
+      break;
+
+    case 'resign':
+      game.status.gameState = 'F'
+      game.status.aditionalInfo = 'This match is over in resign'
+      game.status.finishedAt = Date.now()
+      if(game.resignRequest.player != 'wb')
+        game.status.result = (game.resignRequest.player=='w')?'Black wins':'White wins';
+      break;
+
+    case 'timedOut':
+      game.status.gameState = 'F'
+      game.status.aditionalInfo = 'This match is over due time out.'
+      game.status.finishedAt = Date.now()
+      game.status.result = (game.turn=='w')?'Black wins':'White wins';
       break;
 
     default:
