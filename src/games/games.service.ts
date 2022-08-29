@@ -1,19 +1,16 @@
-import { BadRequestException, Injectable, Inject, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import mongoose, { Model, ObjectId } from 'mongoose';
+import { Model } from 'mongoose';
 import { moveDTO, newGameDTO } from './dto/games.dto';
 import { Games } from './interfaces/games.interface';
 import { Users } from 'src/users/interfaces/users.interface';
 import { uniqueNamesGenerator, NumberDictionary, Config, animals, colors, adjectives } from 'unique-names-generator'
 import { Chess, Move } from 'chess.js/dist/chess'
-import { UsersService } from 'src/users/users.service';
-//import { SSEService } from 'src/sse/sse.service';
+
 
 
 @Injectable()
 export class GamesService {
-  // @Inject(SSEService)
-  // private sseService: SSEService;
 
   constructor(
     @InjectModel('Games') private gamesModel: Model<Games>
@@ -42,7 +39,7 @@ export class GamesService {
     game.PGN.push({
       moveNumber: game.moveNumber,
       move: move.san,
-      timestemp: Date.now()
+      timestamp: Date.now()
     })
     game = updateTimeControl(game);
     game.turn = newBoard.turn();
@@ -74,14 +71,10 @@ export class GamesService {
     return await newGame.save();
   }
 
-  async joinGame(game: Games, user: Users):Promise<Games> {
-    const player = {
-      id: user['id'],
-      username: user['username'],
-    }
-    
-    if(game.whitePlayer.id === undefined)game.whitePlayer = player;
-    else if(game.blackPlayer.id === undefined)game.blackPlayer = player;
+  async joinGame(game: Games, player: Users):Promise<Games> {
+
+    if(game.whitePlayer === null) game.whitePlayer = player;
+    else if(game.blackPlayer === null) game.blackPlayer = player;
     
     game = updateStatus(game,'join');
     return await game.save();
@@ -89,9 +82,9 @@ export class GamesService {
 
   async resign(game: Games, player:Users):Promise<Games>{
     game.resignRequest.player = wichPlayer(game, player);
-    game.resignRequest.timeStemp = Date.now()
+    game.resignRequest.timestamp = Date.now()
     game = updateStatus(game, 'resign');
-    game = await this.clock(game, game.resignRequest.timeStemp)
+    game = await this.clock(game, game.resignRequest.timestamp)
     return await game.save();
   }
 
@@ -157,7 +150,7 @@ export class GamesService {
     if(moves.length === 0)
       return game;
 
-    const timeDifference = (time - moves[0].timestemp)/1000;
+    const timeDifference = (time - moves[0].timestamp)/1000;
     const timeRemaining = game.timeControl.turnTime - timeDifference;
 
     if(game.turn == 'w'){
@@ -196,7 +189,7 @@ function updateTimeControl(game: Games){
     return game;
   }
 
-  const timeSpent = game.timeControl.increment - (moves[1].timestemp - moves[0].timestemp) / 1000;
+  const timeSpent = game.timeControl.increment - (moves[1].timestamp - moves[0].timestamp) / 1000;
 
   if(game.turn == 'w'){
     game.timeControl.white += parseFloat(timeSpent.toFixed(3));

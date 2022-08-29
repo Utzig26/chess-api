@@ -19,9 +19,10 @@ import {
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { GamesService } from './games.service';
 import { newGameDTO, moveDTO } from './dto/games.dto';
-import { Games } from './interfaces/games.interface';
 import { SSEService } from 'src/sse/sse.service';
+import { Game } from './schemas/games.schema';
 
+@UseInterceptors(ClassSerializerInterceptor)
 @Controller('games')
 export class GamesController {
   constructor(
@@ -29,7 +30,7 @@ export class GamesController {
     private sseService: SSEService
     ) {}
     
-    @Sse(':id/sse')
+  @Sse(':id/sse')
   subscribeToGame(
     @Param('id') id: string
   ) {
@@ -39,20 +40,21 @@ export class GamesController {
 
     return this.sseService.subscribe(id);
   }
-  
+
   @Get('/')
   async getGames() {
     const games = await this.gamesService.findAll()
-    return games;
+    return games.map( game => {
+        return new Game(game.toObject());
+      })
   }
   
   @Get(':id')
-  @UseInterceptors(ClassSerializerInterceptor)
   async getGame(@Param('id') id: string){
     try{
       let game = await this.gamesService.findOne(id);
       game = await this.gamesService.clock(game, Date.now())
-      return game.toObject();
+      return new Game(game.toObject());
     }catch(e){
       throw new HttpException('Game not found.', HttpStatus.NOT_FOUND);
     }
@@ -70,18 +72,16 @@ export class GamesController {
       throw new HttpException('This game is not active.', HttpStatus.FORBIDDEN);
     
     const moves = await this.gamesService.getPossibleMoves(game);
-    return moves;
+    return {game: new Game(game.toObject()), moves: moves};
   }
-
   @UseGuards(JwtAuthGuard)
   @Post('/')
-  @UseInterceptors(ClassSerializerInterceptor)
   async createGame(
       @Body(ValidationPipe) gamesDto: newGameDTO,
       @Request() req,
     ): Promise<Object> {
     const createdGame = await this.gamesService.createNewGame(gamesDto, req.user['user']);
-    return createdGame;
+    return new Game(createdGame.toObject());
   }
 
   @UseGuards(JwtAuthGuard)
@@ -97,12 +97,8 @@ export class GamesController {
     if(!await this.gamesService.getGameStatus(game, 'join'))
       throw new HttpException('This game is no more joinable .', HttpStatus.FORBIDDEN);
 
-    try{
-      const gameJoined = await this.gamesService.joinGame(game, req.user['user'])
-      return gameJoined;
-    }catch(e){
-      throw new HttpException('Game not found.', HttpStatus.NOT_FOUND);
-    }
+    const gameJoined = await this.gamesService.joinGame(game, req.user['user'])
+    return new Game(gameJoined.toObject());
   }
 
   @UseGuards(JwtAuthGuard)
@@ -131,8 +127,8 @@ export class GamesController {
     
     if(!newGame)
       throw new BadRequestException('Move is not possible.');
-    this.sseService.emit(game.resourceId, game)
-    return newGame //this.gamesService.extractGameData(game);    
+    this.sseService.emit(game.resourceId, new Game(newGame.toObject()))
+    return new Game(newGame.toObject());
   }
 
   @UseGuards(JwtAuthGuard)
@@ -153,7 +149,7 @@ export class GamesController {
       throw new BadRequestException();
     }
     const newGame = await this.gamesService.resign(game, req.user['user'])
-    return newGame //this.gamesService.extractGameData(game); 
+    return new Game(newGame.toObject());
   }
 
   @UseGuards(JwtAuthGuard)
@@ -174,7 +170,7 @@ export class GamesController {
     }
 
     const newGame = await this.gamesService.drawRequest(game, req.user['user'])
-    return newGame //this.gamesService.extractGameData(game); 
+    return new Game(newGame.toObject());
   }
 
   @UseGuards(JwtAuthGuard)
@@ -193,6 +189,6 @@ export class GamesController {
       throw new BadRequestException();
     }
     const newGame = await this.gamesService.drawCancel(game, req.user['user'])
-    return newGame //this.gamesService.extractGameData(Game); 
+    return new Game(newGame.toObject());
   }
 }
