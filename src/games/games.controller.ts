@@ -1,8 +1,25 @@
-import { Body, Controller, Delete, Get, Request, Param, Post, UseGuards, ValidationPipe, BadRequestException, UnauthorizedException, HttpException, HttpStatus, Sse } from '@nestjs/common';
+import { 
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Request,
+  Param,
+  Post,
+  UseGuards,
+  ValidationPipe,
+  BadRequestException,
+  UnauthorizedException,
+  HttpException,
+  HttpStatus,
+  Sse,
+  ClassSerializerInterceptor,
+  UseInterceptors
+} from '@nestjs/common';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
-import { GamesService } from '../games.service';
-import { newGameDTO, moveDTO } from '../dto/games.dto';
-import { Games } from '../interfaces/games.interface';
+import { GamesService } from './games.service';
+import { newGameDTO, moveDTO } from './dto/games.dto';
+import { Games } from './interfaces/games.interface';
 import { SSEService } from 'src/sse/sse.service';
 
 @Controller('games')
@@ -10,9 +27,9 @@ export class GamesController {
   constructor(
     private gamesService: GamesService,
     private sseService: SSEService
-  ) {}
-
-  @Sse(':id/sse')
+    ) {}
+    
+    @Sse(':id/sse')
   subscribeToGame(
     @Param('id') id: string
   ) {
@@ -30,13 +47,12 @@ export class GamesController {
   }
   
   @Get(':id')
-  async getGame(
-      @Param('id') id: string
-    ){
+  @UseInterceptors(ClassSerializerInterceptor)
+  async getGame(@Param('id') id: string){
     try{
       let game = await this.gamesService.findOne(id);
       game = await this.gamesService.clock(game, Date.now())
-      return game;
+      return game.toObject();
     }catch(e){
       throw new HttpException('Game not found.', HttpStatus.NOT_FOUND);
     }
@@ -59,12 +75,13 @@ export class GamesController {
 
   @UseGuards(JwtAuthGuard)
   @Post('/')
+  @UseInterceptors(ClassSerializerInterceptor)
   async createGame(
       @Body(ValidationPipe) gamesDto: newGameDTO,
       @Request() req,
     ): Promise<Object> {
     const createdGame = await this.gamesService.createNewGame(gamesDto, req.user['user']);
-    return this.gamesService.extractGameData(createdGame);
+    return createdGame;
   }
 
   @UseGuards(JwtAuthGuard)
@@ -82,7 +99,7 @@ export class GamesController {
 
     try{
       const gameJoined = await this.gamesService.joinGame(game, req.user['user'])
-      return this.gamesService.extractGameData(gameJoined);
+      return gameJoined;
     }catch(e){
       throw new HttpException('Game not found.', HttpStatus.NOT_FOUND);
     }

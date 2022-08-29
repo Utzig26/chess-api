@@ -2,8 +2,8 @@ import { Body, Controller, Post, UseGuards, ValidationPipe, Request } from "@nes
 
 import { UsersDTO } from "src/users/dto/users.dto";
 import { UsersService } from "src/users/users.service";
-import { AuthService } from "../auth.service";
-import { LocalAuthGuard } from "../guards/local-auth-guard";
+import { AuthService } from "./auth.service";
+import { LocalAuthGuard } from "./guards/local-auth-guard";
 
 @Controller('auth')
 export class AuthController {

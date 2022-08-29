@@ -4,7 +4,7 @@ import { UsersSchema } from 'src/users/schemas/users.schema';
 import { UsersModule } from 'src/users/users.module';
 import { UsersService } from 'src/users/users.service';
 import { GamesService } from './games.service';
-import { GamesController } from './controllers/games.controller';
+import { GamesController } from './games.controller';
 import { GamesSchema } from './schemas/games.schema';
 import { SSEModule } from 'src/sse/sse.module';
 import { SSEService } from 'src/sse/sse.service';

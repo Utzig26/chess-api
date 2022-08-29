@@ -126,21 +126,6 @@ export class GamesService {
     return await game.save();
   }
 
-  async extractGameData(game: Games):Promise<Object> {
-    const prettyGame ={
-      id: game['resourceId'],
-      blackPlayer: game['blackPlayer']['username'],
-      whitePlayer: game['whitePlayer']['username'],
-      FEN: game['FEN'],
-      PGN: game['PGN'],
-      timecontrol: game['timeControl'],
-      status: game['status'],
-      drawOffer: game['drawOffer'],
-      turn: game['turn'],
-    }
-    return prettyGame;
-  }
-
   async getGameStatus(game:Games, type: string):Promise<Boolean> {
     const state = game.status.gameState;
     
