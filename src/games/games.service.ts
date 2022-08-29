@@ -7,8 +7,6 @@ import { Users } from 'src/users/interfaces/users.interface';
 import { uniqueNamesGenerator, NumberDictionary, Config, animals, colors, adjectives } from 'unique-names-generator'
 import { Chess, Move } from 'chess.js/dist/chess'
 
-
-
 @Injectable()
 export class GamesService {
 
@@ -21,7 +19,12 @@ export class GamesService {
   }
 
   async findOne(id: string):Promise<Games> {
-    return await this.gamesModel.findOne({ "resourceId": id }).exec();
+    const game = await this.gamesModel.findOne({ "resourceId": id }).exec();
+    
+    if(!game)
+      return null;
+
+    return await this.clock(game, Date.now());
   }
 
   async getPossibleMoves(game: Games):Promise<(string[]|Move[])>{
@@ -80,7 +83,7 @@ export class GamesService {
     return await game.save();
   }
 
-  async resign(game: Games, player:Users):Promise<Games>{
+  async resign(game: Games, player: Users):Promise<Games>{
     game.resignRequest.player = wichPlayer(game, player);
     game.resignRequest.timestamp = Date.now()
     game = updateStatus(game, 'resign');
@@ -134,6 +137,9 @@ export class GamesService {
   }
 
   async verifyTurnPlayer(game: Games, player:Users):Promise<boolean>{
+    if(game.whitePlayer == null || game.blackPlayer == null)
+      return null;
+      
     if(game.turn == 'w')
       return (player['id'] == game.whitePlayer.id);
     else
@@ -141,33 +147,31 @@ export class GamesService {
   }
 
   async verifyPlayer(game: Games, player:Users):Promise<boolean>{
+    if(game.whitePlayer == null || game.blackPlayer == null)
+      return null;
     return (player['id'] == game.whitePlayer.id || player['id'] == game.blackPlayer.id);
   }
 
   async clock(game: Games, time: number): Promise<Games>{
-    const moves = game.PGN.slice(-2)
+    const moves = game.PGN.slice(-1)
     
     if(moves.length === 0)
       return game;
-
+    
     const timeDifference = (time - moves[0].timestamp)/1000;
     const timeRemaining = game.timeControl.turnTime - timeDifference;
-
-    if(game.turn == 'w'){
-      if(timeRemaining <= 0){
-        game.timeControl.white = 0;
-        game = updateStatus(game, 'timedOut');
-      }else{
-        game.timeControl.white = timeRemaining
-      }
-    }else if(game.turn == 'b'){
-      if(timeRemaining <= 0){
+    if(timeRemaining <= 0){
+      (game.turn == 'w')?
+        game.timeControl.white = 0:
         game.timeControl.black = 0;
-        game = updateStatus(game, 'timedOut');
-      }else{
-        game.timeControl.black = timeRemaining
-      }
+      game.timeControl.turnTime = 0;
+      game = updateStatus(game, 'timedOut');
+    }else{
+      (game.turn == 'w')?
+        game.timeControl.white = parseFloat(timeRemaining.toFixed(3)):
+        game.timeControl.black = parseFloat(timeRemaining.toFixed(3));
     }
+    
     return await game.save();
   }
 }
@@ -184,18 +188,23 @@ function wichPlayer(game: Games, player:Users){
 function updateTimeControl(game: Games){
   const moves = game.PGN.slice(-2)
   
+  if (moves.length === 0){
+    return game;
+  }
+
   if (moves.length === 1){
     game.timeControl.turnTime = game.timeControl.black;
     return game;
   }
 
-  const timeSpent = game.timeControl.increment - (moves[1].timestamp - moves[0].timestamp) / 1000;
-
+  const timeSpent = game.timeControl.increment - ((moves[1].timestamp - moves[0].timestamp) / 1000);
   if(game.turn == 'w'){
-    game.timeControl.white += parseFloat(timeSpent.toFixed(3));
+    game.timeControl.white = game.timeControl.turnTime + timeSpent;
+    game.timeControl.white = parseFloat(game.timeControl.white.toFixed(3))
     game.timeControl.turnTime = game.timeControl.black;
   }else{
-    game.timeControl.black += parseFloat(timeSpent.toFixed(3));
+    game.timeControl.black = game.timeControl.turnTime + timeSpent;
+    game.timeControl.black = parseFloat(game.timeControl.black.toFixed(3))
     game.timeControl.turnTime = game.timeControl.white;
   }
   

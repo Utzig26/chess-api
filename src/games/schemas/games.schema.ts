@@ -2,6 +2,7 @@ import * as mongoose from 'mongoose';
 import { Chess } from 'chess.js/dist/chess'
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Exclude, Transform } from 'class-transformer';
+import { IsOptional } from 'class-validator';
 const initalFEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'
 
 export type GameDocument = Game & Document;
@@ -90,10 +91,10 @@ export class DrawOffer {
 
 @Schema({ _id : false })
 export class ResignRequest {
-  @Prop({ type: String })
+  @Prop({ type: String, default: undefined})
   player: string;
   
-  @Prop({type: Number })
+  @Prop({type: Number, default: undefined })
   timestamp: number;
 }
 
@@ -141,11 +142,8 @@ export class Game {
   @Prop({ type: DrawOffer, default: () => ({}) })
   drawOffer: DrawOffer;
 
-  @Prop({ 
-    type: ResignRequest,
-    required: false,
-  })
-  resignRequest: ResignRequest
+  @Prop({ type: ResignRequest, default: () => ({}) })
+  resignRequest: ResignRequest;
   
   @Prop({
     type: mongoose.SchemaTypes.Array,
