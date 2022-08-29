@@ -9,11 +9,6 @@ export class UsersService {
     @InjectModel('Users') private usersModel: Model<Users>, 
   ) {}
 
-  /**
-   * Extracts relevant user's data from MongoDB Document
-   * @param user - user's object
-   * @returns relevant user's data.
-   */
   findById(id:string) {
     const user = this.usersModel.findById(id)
     
@@ -22,6 +17,12 @@ export class UsersService {
     }
     return user
   }
+
+  /**
+   * Extracts relevant user's data from MongoDB Document
+   * @param user - user's object
+   * @returns relevant user's data.
+   */
   extractUserData(user: Users) {
     return {
       id: user['id'],

@@ -1,132 +1,187 @@
 import * as mongoose from 'mongoose';
 import { Chess } from 'chess.js/dist/chess'
-
-/**
- * gameState constants
- * {W: Wating, WP: Wating Player, F: Finished, A: Active}
- */
-
-
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Exclude, Transform } from 'class-transformer';
 const initalFEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'
 
-/**
- * Schema of user's data to be saved in database
- * @example { 'username': 'Magnus.Carlsen', 'password': '***********', ... }
- */
-export const GamesSchema = new mongoose.Schema({
-  resourceId : {
+export type GameDocument = Game & Document;
+
+@Schema({ _id : false })
+export class Player {
+  @Prop({ type: String })
+  username: string;
+  
+  @Prop({ type: mongoose.SchemaTypes.ObjectId })
+  id: string;
+}
+
+@Schema({ _id : false })
+export class San {
+  @Prop({ type: Number })
+  moveNumber: number;
+
+  @Prop({ type: String })
+  move: string;
+
+  @Prop({ type: Number})
+  timestamp: number;
+}
+
+@Schema({ _id : false })
+export class TimeControl {
+  @Prop({ type: Number })
+  increment: number;
+
+  @Prop({ type: Number })
+  black: number;
+
+  @Prop({ type: Number })
+  white: number;
+
+  @Prop({ 
+    type: Number,
+    required: false,
+  })
+  turnTime: number
+}
+
+@Schema({ _id : false })
+export class Status {
+  @Prop({ 
+    type: String,
+    default: "WP",
+  })
+  gameState: string;
+
+  @Prop({
+    type: String,
+    required: false,
+  })
+  result: string;
+
+  @Prop({
+    type: String,
+    default: "Wating for the players connect",
+    required: false,
+  })
+  aditionalInfo:string;
+  
+  @Prop({
+    type: Number,
+    required: false,
+  })
+  finishedAt: number;
+}
+
+@Schema({ _id : false })
+export class DrawOffer {
+  @Prop({
+    type: Boolean,
+    default: false,
+  })
+  white: boolean;
+ 
+  @Prop({
+    type: Boolean,
+    default: false,
+  })
+  black: boolean;
+}
+
+@Schema({ _id : false })
+export class ResignRequest {
+  @Prop({ type: String })
+  player: string;
+  
+  @Prop({type: Number })
+  timestamp: number;
+}
+
+@Schema({ timestamps: true })
+export class Game {
+  @Prop({ 
     type: String,
     required: true,
     unique: true,
-  },
+  })
+  resourceId: string
 
-  whitePlayer: {
-    username: {
-      type: String,
-    },
-    id: {
-      type: mongoose.SchemaTypes.ObjectId,
-    },
+  @Transform(({value}) => {return value?value.username:undefined})
+  @Prop({
+    type: Player,
     required: false,
-  },
-
-  blackPlayer: {
-    username: {
-      type: String,
-    },
-    id: {
-      type: mongoose.SchemaTypes.ObjectId,
-    },
+  })
+  whitePlayer: Player
+  
+  @Transform(({value}) => {return value?value.username:undefined})
+  @Prop({
+    type: Player,
     required: false,
-  },
-  
-  moveNumber:{
-    type: Number,
-    default: 0,
-  },
+  })
+  blackPlayer: Player
 
-  PGN:{
-    type:[{
-      moveNumber: Number,
-      move: String,
-      timestemp: Number,
-    }],
-    default:[],
-  },
+  @Prop({ type: TimeControl })
+  timeControl: TimeControl;
 
-  FEN:{
-    type: String,
-    default:initalFEN,
-  },
-
-  timeControl:{ //all three attributes must be in seconds 
-    increment:{
-      type: Number,
-    },
-    black:{
-      type: Number,
-    },
-    white:{
-      type: Number,
-    },
-    turnTime:{
-      type: Number,
-      required: false,
-    }
-  },
-  
-  turn:{
+  @Prop({
     type: String,
     default: 'w',
-  },
+  })
+  turn: string;
 
-  status:{
-    gameState:{
-      type: String,
-      default: "WP",
-    },
-    result:{
-      type: String,
-      required: false,
-    },
-    aditionalInfo:{
-      type: String,
-      default: "Wating for the players connect",
-      required: false,
-    },
-    finishedAt:{
-      type: Number,
-      required: false,
-    },
-  },
+  @Prop({
+    type: String,
+    default:initalFEN,
+  })
+  FEN: string;
 
-  drawOffer:{
-    black:{
-      type: Boolean,
-      default: false,
-    },
-    white:{
-      type: Boolean,
-      default: false,
-    },
-  },
+  @Prop({ type: Status, default: () => ({}) })
+  status: Status;
 
-  resignRequest:{
-    player:{
-      type: String,
-      required: false,
-    },
-    timeStemp:{
-      type: Number,
-      required: false,
-    },
-  },
+  @Prop({ type: DrawOffer, default: () => ({}) })
+  drawOffer: DrawOffer;
 
-  board : {
-    type: mongoose.SchemaTypes.Mixed,
-    default: new Chess(),
+  @Prop({ 
+    type: ResignRequest,
+    required: false,
+  })
+  resignRequest: ResignRequest
+  
+  @Prop({
+    type: mongoose.SchemaTypes.Array,
+    default: [],
+  })
+  PGN: San[];
+
+  @Exclude()
+  @Prop({ 
+    type: Number,
+    default: 0,
+  })
+  moveNumber: number;
+
+  @Exclude()
+  @Prop({
+    type: Chess,
     required: true,
-  },
-}, 
-{ timestamps: true }, //Mongoose will then set createdAt when the document is first inserted, and update updatedAt whenever you update the document
-);
+    default: new Chess()
+  })
+  board: Chess;
+
+  @Exclude()
+  createdAt: number;
+
+  @Exclude()
+  updatedAt: number;
+
+  @Exclude()
+  __v: number;
+
+  @Exclude()
+  _id: number;
+
+  constructor(game: Partial<Object>){
+    Object.assign(this, game);
+  }
+}
+export const GameSchema = SchemaFactory.createForClass(Game);
