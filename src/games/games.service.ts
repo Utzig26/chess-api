@@ -39,14 +39,14 @@ export class GamesService {
       return null
       
     game.FEN = newBoard.fen();
-    game.PGN.push({
+    game.history.push({
       moveNumber: game.moveNumber,
-      move: move.san,
+      move: newBoard.history({ verbose: true })[0],
       timestamp: Date.now()
     })
     game = updateTimeControl(game);
     game.turn = newBoard.turn();
-    if(game.turn == 'b')
+    if(game.turn == 'w')
       game.moveNumber += 1;
     game.board = newBoard;
     game = updateStatus(game, 'move');
@@ -153,7 +153,7 @@ export class GamesService {
   }
 
   async clock(game: Games, time: number): Promise<Games>{
-    const moves = game.PGN.slice(-1)
+    const moves = game.history.slice(-1)
     
     if(moves.length === 0)
       return game;
@@ -186,7 +186,7 @@ function wichPlayer(game: Games, player:Users){
 }
 
 function updateTimeControl(game: Games){
-  const moves = game.PGN.slice(-2)
+  const moves = game.history.slice(-2)
   
   if (moves.length === 0){
     return game;

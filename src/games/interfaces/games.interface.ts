@@ -1,7 +1,6 @@
-import { Document, ObjectId } from 'mongoose';
+import { Document } from 'mongoose';
 import { Chess } from 'chess.js/dist/chess'
-import { DrawOffer, Player, ResignRequest, San, Status, TimeControl } from '../schemas/games.schema'
-import { User } from 'src/users/schemas/users.schema';
+import { DrawOffer, Player, ResignRequest, moveData, Status, TimeControl } from '../schemas/games.schema'
 
 export interface Games extends Document {
   readonly id: string;
@@ -9,7 +8,7 @@ export interface Games extends Document {
   whitePlayer: Player;
   blackPlayer: Player;
   moveNumber: number;
-  PGN: [San];
+  history: [moveData];
   FEN: string;
   readonly timeControl: TimeControl;
   turn: string;

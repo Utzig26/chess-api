@@ -1,8 +1,7 @@
 import * as mongoose from 'mongoose';
-import { Chess } from 'chess.js/dist/chess'
+import { Chess, Move } from 'chess.js/dist/chess'
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Exclude, Transform } from 'class-transformer';
-import { IsOptional } from 'class-validator';
 const initalFEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'
 
 export type GameDocument = Game & Document;
@@ -17,12 +16,12 @@ export class Player {
 }
 
 @Schema({ _id : false })
-export class San {
+export class moveData {
   @Prop({ type: Number })
   moveNumber: number;
 
-  @Prop({ type: String })
-  move: string;
+  @Prop({ type: mongoose.SchemaTypes.Mixed })
+  move: Move | string;
 
   @Prop({ type: Number})
   timestamp: number;
@@ -149,12 +148,12 @@ export class Game {
     type: mongoose.SchemaTypes.Array,
     default: [],
   })
-  PGN: San[];
+  history: moveData[];
 
   @Exclude()
   @Prop({ 
     type: Number,
-    default: 0,
+    default: 1,
   })
   moveNumber: number;
 
