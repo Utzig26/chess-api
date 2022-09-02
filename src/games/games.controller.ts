@@ -8,13 +8,11 @@ import {
   Post,
   UseGuards,
   ValidationPipe,
-  BadRequestException,
-  UnauthorizedException,
   HttpException,
   HttpStatus,
   Sse,
   ClassSerializerInterceptor,
-  UseInterceptors
+  UseInterceptors,
 } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { GamesService } from './games.service';
@@ -29,7 +27,7 @@ export class GamesController {
     private gamesService: GamesService,
     private sseService: SSEService
     ) {}
-    
+  
   @Sse(':id/sse')
   subscribeToGame(
     @Param('id') id: string
