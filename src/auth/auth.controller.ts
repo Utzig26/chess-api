@@ -1,4 +1,5 @@
-import { Body, Controller, Post, UseGuards, ValidationPipe, Request } from "@nestjs/common";
+import { Body, Controller, Post, UseGuards, ValidationPipe, Request, Res } from "@nestjs/common";
+import { Response } from "express";
 
 import { UsersDTO } from "src/users/dto/users.dto";
 import { UsersService } from "src/users/users.service";
@@ -14,18 +15,26 @@ export class AuthController {
 
   @Post('signup')
   async signUp(
-    @Body(ValidationPipe) usersDTO: UsersDTO
+    @Body(ValidationPipe) usersDTO: UsersDTO,
+    @Res({passthrough: true}) response: Response
   ): Promise<any> {
     const authUser = await this.authService.signUp(usersDTO);
     const token = await this.authService.signIn(authUser);
     const user = this.usersService.extractUserData(authUser);
-
-    return { user, token };
+    
+    response.cookie('jwt', token, {httpOnly:true});
+    return { user: user, accessToken: token };
   }
 
   @UseGuards(LocalAuthGuard)
   @Post('signin')
-  async signIn(@Request() req) {
-    return this.authService.signIn(req.user);
+  async signIn(
+    @Request() req,
+    @Res({passthrough: true}) response: Response
+  ) {
+    const token = await this.authService.signIn(req.user);
+    
+    response.cookie('jwt', token, {httpOnly:true});
+    return { accessToken: token };
   }
 }
