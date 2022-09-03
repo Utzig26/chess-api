@@ -1,5 +1,6 @@
 import { Body, Controller, Post, UseGuards, ValidationPipe, Request, Res } from "@nestjs/common";
 import { Response } from "express";
+import { JwtAuthGuard } from "src/common/guards/jwt-auth.guard";
 
 import { UsersDTO } from "src/users/dto/users.dto";
 import { UsersService } from "src/users/users.service";
@@ -36,5 +37,16 @@ export class AuthController {
     
     response.cookie('jwt', token, {httpOnly:true});
     return { accessToken: token };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('signout')
+  async signout(
+    @Res({passthrough: true}) response: Response
+  ){
+    response.clearCookie('jwt');
+    return {
+      message: "success"
+    }
   }
 }
