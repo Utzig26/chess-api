@@ -29,7 +29,7 @@
     "@nestjs/passport": "^9.0.0",
     "@nestjs/platform-express": "^9.0.11",
     "@types/passport-jwt": "^3.0.6",
-    "bcrypt": "^5.0.1",
+    "bcrypt": "^5.1.0",
     "chess.js": "github:Utzig26/chess.js#dev",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
