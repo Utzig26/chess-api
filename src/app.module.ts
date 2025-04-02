@@ -9,12 +9,12 @@ import { ConfigModule } from '@nestjs/config';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     MongooseModule.forRoot(
-      `mongodb://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@localhost:27017/chess-api?authSource=admin`
-      ),
+      `mongodb://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@localhost:27017/chess-api?authSource=admin`,
+    ),
     AuthModule,
-    UsersModule
+    UsersModule,
   ],
   controllers: [AuthController],
-  providers: []
+  providers: [],
 })
-export class AppModule { }
+export class AppModule {}

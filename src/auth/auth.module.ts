@@ -11,13 +11,12 @@ import { ConfigModule } from '@nestjs/config';
     UsersModule,
     JwtModule.register({
       global: true,
-      secret: process.env.JWT_SECRET, 
+      secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: '60s' },
     }),
   ],
   controllers: [AuthController],
   providers: [AuthService],
-  exports: [AuthService]
-
+  exports: [AuthService],
 })
 export class AuthModule {}
