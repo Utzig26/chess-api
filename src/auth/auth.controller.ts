@@ -17,4 +17,12 @@ export class AuthController {
     const jwt = await this.authService.signUp(createUserDto);
     return jwt;
   }
+
+  @Post('signin')
+  async signIn(
+    @Body(ValidationPipe) createUserDto: CreateUserDto,
+  ): Promise<{ access_token: string }> {
+    const jwt = await this.authService.signIn(createUserDto);
+    return jwt;
+  }
 }

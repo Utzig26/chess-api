@@ -16,15 +16,22 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
+  async validateUser(username: string, pass: string): Promise<any> {
+    const user = await this.usersService.findOne(username);
+    if (user && user.password === pass) {
+      const { password, ...result } = user;
+      return result;
+    }
+    return null;
+  }
+
   async signIn(
     createUserDto: CreateUserDto,
   ): Promise<{ access_token: string }> {
     const user = await this.usersService.findOne(createUserDto.username);
-
     if (user?.password !== createUserDto.password) {
       throw new UnauthorizedException();
     }
-
     const jwtPayload = {
       sub: user.id,
       username: user.username,
