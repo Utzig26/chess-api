@@ -8,9 +8,14 @@ import { ConfigModule } from '@nestjs/config';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    MongooseModule.forRoot(
-      `mongodb://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@localhost:27017/chess-api?authSource=admin`,
-    ),
+    MongooseModule.forRoot(process.env.DB_URI, {
+      dbName: process.env.DB_NAME,
+      authSource: 'admin',
+      auth: {
+        username: process.env.DB_USERNAME,
+        password: process.env.DB_PASSWORD,
+      },
+    }),
     AuthModule,
     UsersModule,
   ],
