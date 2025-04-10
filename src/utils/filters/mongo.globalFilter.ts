@@ -3,6 +3,7 @@ import {
   Catch,
   ConflictException,
   ExceptionFilter,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { MongoError } from 'mongodb';
 
@@ -13,6 +14,11 @@ export class MongoExceptionFilter implements ExceptionFilter {
       case 11000:
         throw new ConflictException({
           message: `Duplicate key error`,
+        });
+
+      default:
+        throw new InternalServerErrorException({
+          message: `Internal server error`,
         });
     }
   }
