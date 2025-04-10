@@ -25,13 +25,11 @@ export class AuthService {
     return null;
   }
 
-  async signIn(
+  async signUp(
     createUserDto: CreateUserDto,
   ): Promise<{ access_token: string }> {
-    const user = await this.usersService.findOne(createUserDto.username);
-    if (user?.password !== createUserDto.password) {
-      throw new UnauthorizedException();
-    }
+    const user = await this.usersService.create(createUserDto);
+
     const jwtPayload = {
       sub: user.id,
       username: user.username,
@@ -42,15 +40,13 @@ export class AuthService {
     };
   }
 
-  async signUp(
+  async signIn(
     createUserDto: CreateUserDto,
   ): Promise<{ access_token: string }> {
-    const user = await this.usersService.create(createUserDto);
-
-    if (!user) {
+    const user = await this.usersService.findOne(createUserDto.username);
+    if (user?.password !== createUserDto.password) {
       throw new UnauthorizedException();
     }
-
     const jwtPayload = {
       sub: user.id,
       username: user.username,
