@@ -1,7 +1,8 @@
 import { Body, Controller, Post, ValidationPipe } from '@nestjs/common';
 import { AuthService } from './auth.service';
 
-import { CreateUserDto } from 'src/users/dto/users.create.dto';
+import { UserCreateDto } from 'src/users/dto/user.create.dto';
+import { UserSignDto } from '../users/dto/user.sign.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -12,17 +13,17 @@ export class AuthController {
 
   @Post('signup')
   async signUp(
-    @Body(ValidationPipe) createUserDto: CreateUserDto,
+    @Body(ValidationPipe) userCreateDto: UserCreateDto,
   ): Promise<{ access_token: string }> {
-    const jwt = await this.authService.signUp(createUserDto);
+    const jwt = await this.authService.signUp(userCreateDto);
     return jwt;
   }
 
   @Post('signin')
   async signIn(
-    @Body(ValidationPipe) createUserDto: CreateUserDto,
+    @Body(ValidationPipe) userSignDto: UserSignDto,
   ): Promise<{ access_token: string }> {
-    const jwt = await this.authService.signIn(createUserDto);
+    const jwt = await this.authService.signIn(userSignDto);
     return jwt;
   }
 }
