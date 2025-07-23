@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from './schema/user.schema';
@@ -29,6 +29,9 @@ export class UsersService {
 
   async create(userCreateDto: UserCreateDto): Promise<User> {
     const { password, username } = userCreateDto;
+    if (await this.findOne(username))
+      throw new ConflictException('User already exists');
+
     const hashedPassword = await this.hashPassword(password);
     const user: User = new this.userModel({
       username: username,
