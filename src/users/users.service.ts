@@ -2,8 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from './schema/user.schema';
-import { CreateUserDto } from './dto/users.create.dto';
+import { UserCreateDto } from './dto/user.create.dto';
 import * as bcrypt from 'bcrypt';
+import { UserSignDto } from './dto/user.sign.dto';
 
 @Injectable()
 export class UsersService {
@@ -14,20 +15,20 @@ export class UsersService {
     return this.userModel.findOne({ username: username }).exec();
   }
 
-  async checkPassword(username: string, password: string): Promise<User> {
+  async checkPassword(userSignDto: UserSignDto): Promise<User> {
     const user = await this.userModel
-      .findOne({ username: username })
+      .findOne({ username: userSignDto.username })
       .select('+password')
       .exec();
 
     if (!user) return null;
-    if (user.password !== password) return null;
+    if (!this.comparePassword(userSignDto.password, user.password)) return null;
 
     return user;
   }
 
-  async create(createUserDto: CreateUserDto): Promise<User> {
-    const { password, username } = createUserDto;
+  async create(userCreateDto: UserCreateDto): Promise<User> {
+    const { password, username } = userCreateDto;
     const hashedPassword = await this.hashPassword(password);
     const user: User = new this.userModel({
       username: username,

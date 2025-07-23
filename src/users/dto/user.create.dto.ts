@@ -1,6 +1,6 @@
 import { IsString, MaxLength, MinLength, Matches } from 'class-validator';
 
-export class CreateUserDto {
+export class UserCreateDto {
   @Matches(/^(?![_.])(?!.*[_.]{2})[a-zA-Z0-9._]+(?<![_.])$/, {
     message:
       'Username is invalid, it must contain only alphanumeric characters, underscores and dots',
