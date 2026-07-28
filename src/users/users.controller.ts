@@ -35,6 +35,6 @@ export class UsersController {
   ): Promise<UserResponseDto> {
     const user = await this.usersService.findById(current.id);
 
-    return UserResponseDto.from(user);
+    return new UserResponseDto(user);
   }
 }

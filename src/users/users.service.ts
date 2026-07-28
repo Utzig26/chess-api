@@ -12,10 +12,6 @@ const SALT_ROUNDS = 10;
 export class UsersService {
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
 
-  async findByUsername(username: string): Promise<UserDocument | null> {
-    return this.userModel.findOne({ username }).exec();
-  }
-
   async findById(id: string): Promise<UserDocument> {
     const user = await this.userModel.findById(id).exec();
     if (!user) {

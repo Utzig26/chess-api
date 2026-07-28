@@ -20,8 +20,4 @@ export class UserResponseDto {
     this.createdAt = user.get('createdAt');
     this.updatedAt = user.get('updatedAt');
   }
-
-  static from(user: UserDocument): UserResponseDto {
-    return new UserResponseDto(user);
-  }
 }
