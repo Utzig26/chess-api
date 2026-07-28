@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, Logger } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from './schema/user.schema';
@@ -8,36 +8,38 @@ import { UserSignDto } from './dto/user.sign.dto';
 
 @Injectable()
 export class UsersService {
-  logger: Logger;
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
 
-  async findOne(username: string): Promise<User> {
+  async findOne(username: string): Promise<UserDocument> {
     return this.userModel.findOne({ username: username }).exec();
   }
 
-  async checkPassword(userSignDto: UserSignDto): Promise<User> {
+  async checkPassword(userSignDto: UserSignDto): Promise<UserDocument> {
     const user = await this.userModel
       .findOne({ username: userSignDto.username })
       .select('+password')
       .exec();
 
     if (!user) return null;
-    if (!this.comparePassword(userSignDto.password, user.password)) return null;
+
+    const matches = await this.comparePassword(
+      userSignDto.password,
+      user.password,
+    );
+    if (!matches) return null;
 
     return user;
   }
 
-  async create(userCreateDto: UserCreateDto): Promise<User> {
+  async create(userCreateDto: UserCreateDto): Promise<UserDocument> {
     const { password, username } = userCreateDto;
     if (await this.findOne(username))
       throw new ConflictException('User already exists');
 
-    const hashedPassword = await this.hashPassword(password);
-    const user: User = new this.userModel({
-      username: username,
-      password: hashedPassword,
+    return this.userModel.create({
+      username,
+      password: await this.hashPassword(password),
     });
-    return await this.userModel.create(user);
   }
 
   private async hashPassword(password: string): Promise<string> {

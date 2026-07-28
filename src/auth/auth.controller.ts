@@ -1,6 +1,6 @@
-import { Body, Controller, Post, ValidationPipe } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { UserCreateDto } from 'src/users/dto/user.create.dto';
+import { UserCreateDto } from '../users/dto/user.create.dto';
 import { UserSignDto } from '../users/dto/user.sign.dto';
 import { WrapMessage } from '../utils/decorators/wrap-message.decorator';
 
@@ -11,17 +11,17 @@ export class AuthController {
   @Post('signup')
   @WrapMessage('User created')
   async signUp(
-    @Body(ValidationPipe) userCreateDto: UserCreateDto,
-  ): Promise<{ access_token: string }> {
-    return await this.authService.signUp(userCreateDto);
+    @Body() userCreateDto: UserCreateDto,
+  ): Promise<{ accessToken: string }> {
+    return this.authService.signUp(userCreateDto);
   }
 
-  @WrapMessage('User signed in')
   @Post('signin')
+  @HttpCode(HttpStatus.OK)
+  @WrapMessage('User signed in')
   async signIn(
-    @Body(ValidationPipe) userSignDto: UserSignDto,
-  ): Promise<{ access_token: string }> {
-    const jwt = await this.authService.signIn(userSignDto);
-    return jwt;
+    @Body() userSignDto: UserSignDto,
+  ): Promise<{ accessToken: string }> {
+    return this.authService.signIn(userSignDto);
   }
 }
