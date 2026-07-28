@@ -36,3 +36,11 @@ lerna-debug.log*
 
 # environment
 .env
+
+# package manager stores
+.pnpm-store/
+
+# assistant tooling
+.claude/
+.claude-*/
+CLAUDE.local.md
