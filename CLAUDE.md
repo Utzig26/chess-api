@@ -63,8 +63,9 @@ src/
 - **Nomes de arquivo em kebab-case**, sufixo pelo papel:
   `create-user.dto.ts`, `jwt-auth.guard.ts`, `all-exceptions.filter.ts`,
   `global-response.interceptor.ts`, `refresh-token.schema.ts`.
-- **Imports internos pelo alias `@app/*`**, nunca caminhos relativos que sobem de diretório
-  (`../../`) e nunca `src/...` cru.
+- **Imports internos sempre relativos.** Não existe alias e o `baseUrl` foi removido de
+  propósito, para que um `import ... from 'src/...'` falhe na compilação em vez de funcionar
+  por acidente — era o que mantinha o `test:e2e` quebrado.
 - Providers globais registrados por DI (`APP_FILTER`, `APP_INTERCEPTOR`, `APP_PIPE`),
   nunca instanciados com `new` no `main.ts`.
 - Um serviço não importa outro módulo de domínio direto: importa o módulo e consome o que

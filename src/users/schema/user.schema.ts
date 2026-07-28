@@ -8,7 +8,7 @@ export type UserDocument = HydratedDocument<User>;
   toJSON: {
     virtuals: true,
     versionKey: false,
-    transform: (_doc, ret) => {
+    transform: (_doc, ret: Record<string, unknown>) => {
       delete ret._id;
       return ret;
     },

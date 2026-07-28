@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import * as request from 'supertest';
+import request from 'supertest';
 import {
   createTestApp,
   TestApp,
@@ -28,8 +28,15 @@ describe('Authentication (e2e)', () => {
   const signIn = (body: Record<string, unknown> = credentials) =>
     request(app.getHttpServer()).post('/auth/signin').send(body);
 
-  const decode = (token: string) =>
-    app.get(JwtService).verify(token, { secret: TEST_JWT_SECRET });
+  const me = (token?: string) => {
+    const call = request(app.getHttpServer()).get('/users/me');
+
+    return token ? call.set('Authorization', `Bearer ${token}`) : call;
+  };
+
+  const tokenFor = async () => (await signIn()).body.data.accessToken as string;
+
+  const jwt = () => app.get(JwtService);
 
   describe('POST /auth/signup', () => {
     it('creates the user and returns a token inside the response envelope', async () => {
@@ -42,18 +49,33 @@ describe('Authentication (e2e)', () => {
         message: 'User created',
       });
       expect(response.body.data.accessToken).toEqual(expect.any(String));
+      expect(response.body.requestId).toEqual(expect.any(String));
       expect(response.body.timestamp).toEqual(expect.any(String));
     });
 
-    it('rejects a duplicated username', async () => {
+    it('rejects a duplicated username through the unique index', async () => {
       const response = await signUp().expect(409);
 
       expect(response.body.success).toBe(false);
       expect(response.body.statusCode).toBe(409);
+      expect(response.body.requestId).toEqual(expect.any(String));
+    });
+
+    it('rejects a username that differs only by case', async () => {
+      await signUp({ ...credentials, username: 'MAGNUS' }).expect(409);
     });
 
     it('rejects an unknown field in the payload', async () => {
       await signUp({ ...credentials, role: 'admin' }).expect(400);
+    });
+
+    it('reports every validation failure in the errors array', async () => {
+      const response = await signUp({ username: 'a', password: 'x' }).expect(
+        400,
+      );
+
+      expect(response.body.message).toBe('Validation failed');
+      expect(response.body.errors.length).toBeGreaterThan(1);
     });
 
     it.each([
@@ -122,41 +144,119 @@ describe('Authentication (e2e)', () => {
 
   describe('issued access token', () => {
     it('carries the user id as subject', async () => {
-      const response = await signIn().expect(200);
+      const payload = jwt().verify(await tokenFor(), {
+        secret: TEST_JWT_SECRET,
+      });
 
-      const payload = decode(response.body.data.accessToken);
-
-      expect(payload.sub).toBeDefined();
       expect(payload.sub).toMatch(/^[0-9a-f]{24}$/);
     });
 
     it('is typed as an access token', async () => {
-      const response = await signIn().expect(200);
+      const payload = jwt().verify(await tokenFor(), {
+        secret: TEST_JWT_SECRET,
+      });
 
-      expect(decode(response.body.data.accessToken).type).toBe('access');
+      expect(payload.type).toBe('access');
     });
 
     it('does not carry the password hash', async () => {
-      const response = await signIn().expect(200);
+      const payload = jwt().verify(await tokenFor(), {
+        secret: TEST_JWT_SECRET,
+      });
 
-      expect(decode(response.body.data.accessToken)).not.toHaveProperty(
-        'password',
+      expect(payload).not.toHaveProperty('password');
+    });
+  });
+
+  describe('GET /users/me', () => {
+    it('returns the account behind the token', async () => {
+      const response = await me(await tokenFor()).expect(200);
+
+      expect(response.body.message).toBe('Current user');
+      expect(response.body.data).toMatchObject({
+        username: credentials.username,
+      });
+      expect(response.body.data.id).toMatch(/^[0-9a-f]{24}$/);
+      expect(response.body.data).not.toHaveProperty('password');
+    });
+
+    it('rejects a request without a token', async () => {
+      const response = await me().expect(401);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.requestId).toEqual(expect.any(String));
+    });
+
+    it('rejects a malformed token', async () => {
+      await me('not-a-jwt').expect(401);
+    });
+
+    it('rejects a token signed with another secret', async () => {
+      const forged = jwt().sign(
+        { sub: '507f1f77bcf86cd799439011', username: 'magnus', type: 'access' },
+        { secret: 'a-completely-different-secret-value-here' },
       );
+
+      await me(forged).expect(401);
+    });
+
+    it('rejects an expired token', async () => {
+      const expired = jwt().sign(
+        { sub: '507f1f77bcf86cd799439011', username: 'magnus', type: 'access' },
+        { secret: TEST_JWT_SECRET, expiresIn: '-1s' },
+      );
+
+      await me(expired).expect(401);
+    });
+
+    it('rejects a refresh token presented as an access token', async () => {
+      const refresh = jwt().sign(
+        {
+          sub: '507f1f77bcf86cd799439011',
+          username: 'magnus',
+          type: 'refresh',
+        },
+        { secret: TEST_JWT_SECRET },
+      );
+
+      await me(refresh).expect(401);
     });
   });
 
   describe('response bodies', () => {
-    it('never leak the password on any auth route', async () => {
+    it('never leak the password on any route', async () => {
+      const token = await tokenFor();
       const bodies = [
         (await signUp({ username: 'hikaru', password: 'another-password' }))
           .text,
         (await signIn()).text,
         (await signIn({ ...credentials, password: 'wrong-password' })).text,
+        (await me(token)).text,
       ];
 
       for (const body of bodies) {
-        expect(body).not.toContain('password');
         expect(body).not.toContain('$2b$');
+        expect(body).not.toContain('another-password');
+      }
+    });
+
+    it('wraps every response in the same envelope shape', async () => {
+      const responses = [
+        await signIn(),
+        await signIn({ ...credentials, password: 'wrong-password' }),
+        await me(await tokenFor()),
+        await me(),
+      ];
+
+      for (const response of responses) {
+        expect(response.body).toMatchObject({
+          success: expect.any(Boolean),
+          statusCode: expect.any(Number),
+          timestamp: expect.any(String),
+          path: expect.any(String),
+          message: expect.any(String),
+          requestId: expect.any(String),
+        });
       }
     });
   });
