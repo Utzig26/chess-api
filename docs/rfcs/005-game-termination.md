@@ -1,6 +1,6 @@
 # RFC-005: Game termination
 
-**Status:** Proposto
+**Status:** Implementado
 **Depende de:** RFC-001, RFC-003, RFC-004
 
 ## Summary
@@ -93,6 +93,28 @@ partida em `F` recusa mutação.
 uma posição montada; ciclo completo de oferta → retirada → oferta → aceite; desistência de
 espectador → 403; desistir duas vezes → 409; **self-play empata consigo mesmo**; todo
 encerramento traz `finishedAt` e `result` no envelope.
+
+## Notas de implementação
+
+**A tabela virou uma função pura de três argumentos.** `resolveTermination(outcome,
+sideToMove, requested)` recebe o que o motor detectou, de quem é a vez e o motivo pedido, e
+devolve `{ result, additionalInfo }` — ou `null` quando não há nada a encerrar. O `finish()`
+que a RFC-003 tinha criado foi absorvido: o fluxo de lance agora chama a mesma função com
+`requested: null`.
+
+**O vencedor do xeque-mate sai da vez, não de quem jogou.** Nas duas entradas a posição de
+mate tem o lado matado na vez, então `winnerAgainst(sideToMove)` serve tanto para o lance
+que dá mate quanto para uma desistência numa posição já matada. Isso é o que permitiu
+unificar os dois caminhos numa função só.
+
+**Toda mutação passa pelo mesmo portão.** `openMutation` resolve partida, valida jogador e
+checa o relógio antes de qualquer coisa — usado por lance, desistência, oferta e retirada.
+Sem isso, desistir de uma partida com o tempo já estourado registraria desistência em vez
+de derrota por tempo.
+
+**Contra si mesmo, a oferta alterna sozinha.** Quem tem as duas cores marca primeiro a flag
+da cor da vez e depois a outra, então duas chamadas encerram em empate. É a leitura direta
+do modelo de dois booleanos, sem caso especial.
 
 ## Open questions
 
