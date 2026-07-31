@@ -22,6 +22,12 @@ export const envSchema = z.object({
 
   JWT_SECRET: z.string().min(32),
   JWT_ACCESS_TTL: duration.default('15m'),
+  JWT_REFRESH_SECRET: z.string().min(32),
+  JWT_REFRESH_TTL: duration.default('7d'),
+
+  THROTTLE_TTL: z.coerce.number().int().positive().default(60000),
+  THROTTLE_LIMIT: z.coerce.number().int().positive().default(120),
+  THROTTLE_AUTH_LIMIT: z.coerce.number().int().positive().default(10),
 
   CORS_ORIGIN: z.string().default('*'),
   LOG_LEVEL: z

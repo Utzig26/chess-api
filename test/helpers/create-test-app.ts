@@ -10,9 +10,16 @@ export interface TestApp {
   close: () => Promise<void>;
 }
 
-export const TEST_JWT_SECRET = 'e2e-test-secret-that-is-long-enough-here';
+export interface TestAppOptions {
+  authThrottleLimit?: number;
+}
 
-export async function createTestApp(): Promise<TestApp> {
+export const TEST_JWT_SECRET = 'e2e-test-secret-that-is-long-enough-here';
+export const TEST_REFRESH_SECRET = 'e2e-refresh-secret-that-is-long-enough!!';
+
+export async function createTestApp({
+  authThrottleLimit = 500,
+}: TestAppOptions = {}): Promise<TestApp> {
   const mongo = await MongoMemoryServer.create();
 
   process.env.NODE_ENV = 'test';
@@ -21,7 +28,10 @@ export async function createTestApp(): Promise<TestApp> {
   process.env.DB_USERNAME = '';
   process.env.DB_PASSWORD = '';
   process.env.JWT_SECRET = TEST_JWT_SECRET;
-  process.env.LOG_LEVEL = 'silent';
+  process.env.JWT_REFRESH_SECRET = TEST_REFRESH_SECRET;
+  process.env.LOG_LEVEL = process.env.DEBUG_LOG ? 'error' : 'silent';
+  process.env.THROTTLE_LIMIT = '5000';
+  process.env.THROTTLE_AUTH_LIMIT = String(authThrottleLimit);
 
   const { AppModule } = await import('../../src/app.module');
 

@@ -17,12 +17,21 @@ export interface DatabaseConfig {
 export interface JwtConfig {
   secret: string;
   accessTtl: Duration;
+  refreshSecret: string;
+  refreshTtl: Duration;
+}
+
+export interface ThrottleConfig {
+  ttl: number;
+  limit: number;
+  authLimit: number;
 }
 
 export interface Configuration {
   app: AppConfig;
   database: DatabaseConfig;
   jwt: JwtConfig;
+  throttle: ThrottleConfig;
 }
 
 export function configuration(): Configuration {
@@ -44,6 +53,13 @@ export function configuration(): Configuration {
     jwt: {
       secret: env.JWT_SECRET,
       accessTtl: env.JWT_ACCESS_TTL,
+      refreshSecret: env.JWT_REFRESH_SECRET,
+      refreshTtl: env.JWT_REFRESH_TTL,
+    },
+    throttle: {
+      ttl: env.THROTTLE_TTL,
+      limit: env.THROTTLE_LIMIT,
+      authLimit: env.THROTTLE_AUTH_LIMIT,
     },
   };
 }
