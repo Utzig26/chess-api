@@ -12,15 +12,20 @@ import { MongoServerError } from 'mongodb';
 import { Game, GameDocument, GamePlayer } from './schema/game.schema';
 import { CreateGameDto } from './dto/create-game.dto';
 import { generateResourceId } from './resource-id';
+import { GameState, StatusMessage } from './interfaces/game.interface';
 import {
-  GameResult,
-  GameState,
-  OutcomeMessage,
-  StatusMessage,
-} from './interfaces/game.interface';
-import { clockAfterMove, projectGame, spentSince } from './game-projection';
+  clockAfterMove,
+  opposite,
+  projectGame,
+  spentSince,
+} from './game-projection';
+import {
+  RequestedTermination,
+  Termination,
+  resolveTermination,
+} from './termination';
 import { ChessEngineService } from '../chess/chess-engine.service';
-import { GameOutcome, PieceColor } from '../chess/interfaces/chess.interface';
+import { PieceColor } from '../chess/interfaces/chess.interface';
 import { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 
 const RESOURCE_ID_ATTEMPTS = 5;
@@ -29,6 +34,9 @@ const PLAYABLE_STATES: string[] = [
   GameState.waitingForFirstMove,
   GameState.active,
 ];
+
+const sideKey = (color: PieceColor): 'white' | 'black' =>
+  color === 'w' ? 'white' : 'black';
 
 @Injectable()
 export class GamesService {
@@ -91,20 +99,14 @@ export class GamesService {
     san: string,
   ): Promise<GameDocument> {
     const game = await this.findPlayableGame(resourceId);
-    const colors = this.colorsOf(game, user.id);
+    const colors = this.assertPlayer(game, user.id);
 
-    if (colors.length === 0) {
-      throw new ForbiddenException('You are not a player in this game');
-    }
     if (!colors.includes(game.turn)) {
       throw new ConflictException('It is not your turn');
     }
 
     const now = new Date();
-    if (projectGame(game, now).expiredFor) {
-      await this.finishOnTime(game, now);
-      throw new ConflictException('Time is up');
-    }
+    await this.assertClockAlive(game, now);
 
     const applied = this.chessEngine.applyMove(game.pgn, san);
     if (!applied) {
@@ -123,9 +125,56 @@ export class GamesService {
     game.status.state = GameState.active;
     game.status.additionalInfo = StatusMessage.inProgress;
 
-    if (applied.outcome) {
-      this.finish(game, applied.outcome, applied.color);
+    const termination = resolveTermination(applied.outcome, applied.turn, null);
+    if (termination) {
+      this.terminate(game, termination, now);
     }
+
+    return this.persist(game);
+  }
+
+  async resign(
+    resourceId: string,
+    user: AuthenticatedUser,
+  ): Promise<GameDocument> {
+    const { game, colors, now } = await this.openMutation(resourceId, user);
+    const by = colors.length === 1 ? colors[0] : game.turn;
+
+    this.terminate(game, this.resolve(game, { type: 'resignation', by }), now);
+
+    return this.persist(game);
+  }
+
+  async offerDraw(
+    resourceId: string,
+    user: AuthenticatedUser,
+  ): Promise<GameDocument> {
+    const { game, colors, now } = await this.openMutation(resourceId, user);
+    const by = colors.length === 1 ? colors[0] : this.nextUnofferedSide(game);
+
+    game.drawOffer[sideKey(by)] = true;
+
+    if (game.drawOffer.white && game.drawOffer.black) {
+      this.terminate(game, this.resolve(game, { type: 'agreement' }), now);
+    }
+
+    return this.persist(game);
+  }
+
+  async withdrawDraw(
+    resourceId: string,
+    user: AuthenticatedUser,
+  ): Promise<GameDocument> {
+    const { game, colors } = await this.openMutation(resourceId, user);
+    const offered = colors.filter((color) => game.drawOffer[sideKey(color)]);
+
+    if (offered.length === 0) {
+      throw new ConflictException('You have no draw offer to withdraw');
+    }
+
+    offered.forEach((color) => {
+      game.drawOffer[sideKey(color)] = false;
+    });
 
     return this.persist(game);
   }
@@ -198,20 +247,60 @@ export class GamesService {
     await this.persist(game);
   }
 
-  private finish(
+  private async openMutation(
+    resourceId: string,
+    user: AuthenticatedUser,
+  ): Promise<{ game: GameDocument; colors: PieceColor[]; now: Date }> {
+    const game = await this.findPlayableGame(resourceId);
+    const colors = this.assertPlayer(game, user.id);
+    const now = new Date();
+
+    await this.assertClockAlive(game, now);
+
+    return { game, colors, now };
+  }
+
+  private assertPlayer(game: GameDocument, userId: string): PieceColor[] {
+    const colors = this.colorsOf(game, userId);
+
+    if (colors.length === 0) {
+      throw new ForbiddenException('You are not a player in this game');
+    }
+
+    return colors;
+  }
+
+  private async assertClockAlive(game: GameDocument, now: Date): Promise<void> {
+    if (!projectGame(game, now).expiredFor) return;
+
+    await this.finishOnTime(game, now);
+    throw new ConflictException('Time is up');
+  }
+
+  private nextUnofferedSide(game: GameDocument): PieceColor {
+    return game.drawOffer[sideKey(game.turn)] ? opposite(game.turn) : game.turn;
+  }
+
+  private resolve(
     game: GameDocument,
-    outcome: GameOutcome,
-    movedBy: PieceColor,
+    requested: RequestedTermination,
+  ): Termination {
+    return resolveTermination(
+      this.chessEngine.position(game.pgn).outcome,
+      game.turn,
+      requested,
+    ) as Termination;
+  }
+
+  private terminate(
+    game: GameDocument,
+    termination: Termination,
+    at: Date,
   ): void {
     game.status.state = GameState.finished;
-    game.status.finishedAt = new Date();
-    game.status.additionalInfo = OutcomeMessage[outcome];
-    game.status.result =
-      outcome === 'checkmate'
-        ? movedBy === 'w'
-          ? GameResult.whiteWins
-          : GameResult.blackWins
-        : GameResult.draw;
+    game.status.result = termination.result;
+    game.status.additionalInfo = termination.additionalInfo;
+    game.status.finishedAt = at;
   }
 
   private async persist(game: GameDocument): Promise<GameDocument> {

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -175,5 +176,125 @@ export class GamesController {
     const { game, moves } = await this.gamesService.legalMoves(resourceId);
 
     return new LegalMovesResponseDto(game, moves);
+  }
+
+  @Post(':id/resign')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @WrapMessage('Game resigned')
+  @ApiOperation({
+    summary: 'Give the game up',
+    description:
+      'A position that is already decided keeps its own result: resigning into a dead drawn position is recorded as the draw it already was.',
+  })
+  @ApiParam({ name: 'id', example: 'brave-crimson-knight-e4' })
+  @ApiEnvelopeResponse({
+    status: HttpStatus.OK,
+    description: 'The game is finished',
+    type: GameResponseDto,
+  })
+  @ApiEnvelopeErrorResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Missing, malformed or expired access token',
+  })
+  @ApiEnvelopeErrorResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'The caller holds neither colour in this game',
+  })
+  @ApiEnvelopeErrorResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'No game carries this id',
+  })
+  @ApiEnvelopeErrorResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'The game is already finished, or the clock had run out',
+  })
+  async resign(
+    @Param('id') resourceId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<GameResponseDto> {
+    return new GameResponseDto(
+      await this.gamesService.resign(resourceId, user),
+    );
+  }
+
+  @Post(':id/draw')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @WrapMessage('Draw offered')
+  @ApiOperation({
+    summary: 'Offer a draw, or accept the one on the table',
+    description:
+      'There is no separate route to accept. The offer is a flag per colour, and the game ends in a draw once both are raised.',
+  })
+  @ApiParam({ name: 'id', example: 'brave-crimson-knight-e4' })
+  @ApiEnvelopeResponse({
+    status: HttpStatus.OK,
+    description: 'The offer is on the table, or the game ended in a draw',
+    type: GameResponseDto,
+  })
+  @ApiEnvelopeErrorResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Missing, malformed or expired access token',
+  })
+  @ApiEnvelopeErrorResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'The caller holds neither colour in this game',
+  })
+  @ApiEnvelopeErrorResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'No game carries this id',
+  })
+  @ApiEnvelopeErrorResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'The game is already finished, or the clock had run out',
+  })
+  async offerDraw(
+    @Param('id') resourceId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<GameResponseDto> {
+    return new GameResponseDto(
+      await this.gamesService.offerDraw(resourceId, user),
+    );
+  }
+
+  @Delete(':id/draw')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @WrapMessage('Draw offer withdrawn')
+  @ApiOperation({ summary: 'Take back your own draw offer' })
+  @ApiParam({ name: 'id', example: 'brave-crimson-knight-e4' })
+  @ApiEnvelopeResponse({
+    status: HttpStatus.OK,
+    description: 'The offer is off the table',
+    type: GameResponseDto,
+  })
+  @ApiEnvelopeErrorResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Missing, malformed or expired access token',
+  })
+  @ApiEnvelopeErrorResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'The caller holds neither colour in this game',
+  })
+  @ApiEnvelopeErrorResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'No game carries this id',
+  })
+  @ApiEnvelopeErrorResponse({
+    status: HttpStatus.CONFLICT,
+    description:
+      'There is no offer of yours to withdraw, the game is finished, or the clock had run out',
+  })
+  async withdrawDraw(
+    @Param('id') resourceId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<GameResponseDto> {
+    return new GameResponseDto(
+      await this.gamesService.withdrawDraw(resourceId, user),
+    );
   }
 }

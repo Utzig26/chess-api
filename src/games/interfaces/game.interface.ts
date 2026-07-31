@@ -22,6 +22,12 @@ export const StatusMessage = {
   wonOnTime: 'Win on time',
 } as const;
 
+export const TerminationMessage = {
+  whiteResigned: 'White resigned',
+  blackResigned: 'Black resigned',
+  agreement: 'Draw by agreement',
+} as const;
+
 export const OutcomeMessage = {
   checkmate: 'Checkmate',
   stalemate: 'Stalemate',
