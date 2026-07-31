@@ -18,6 +18,7 @@ import {
   OutcomeMessage,
   StatusMessage,
 } from './interfaces/game.interface';
+import { clockAfterMove, projectGame, spentSince } from './game-projection';
 import { ChessEngineService } from '../chess/chess-engine.service';
 import { GameOutcome, PieceColor } from '../chess/interfaces/chess.interface';
 import { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
@@ -99,6 +100,12 @@ export class GamesService {
       throw new ConflictException('It is not your turn');
     }
 
+    const now = new Date();
+    if (projectGame(game, now).expiredFor) {
+      await this.finishOnTime(game, now);
+      throw new ConflictException('Time is up');
+    }
+
     const applied = this.chessEngine.applyMove(game.pgn, san);
     if (!applied) {
       throw new UnprocessableEntityException('Illegal move');
@@ -107,8 +114,9 @@ export class GamesService {
     game.history.push({
       san: applied.san,
       moveNumber: Math.floor(game.history.length / 2) + 1,
-      timestamp: new Date(),
+      timestamp: now,
     });
+    this.chargeClock(game, applied.color, now);
     game.fen = applied.fen;
     game.pgn = applied.pgn;
     game.turn = applied.turn;
@@ -156,6 +164,38 @@ export class GamesService {
     if (game.blackPlayer?.id.toString() === userId) colors.push('b');
 
     return colors;
+  }
+
+  private chargeClock(game: GameDocument, movedBy: PieceColor, at: Date): void {
+    const previous =
+      game.history.length >= 2
+        ? game.history[game.history.length - 2].timestamp
+        : game.startedAt;
+
+    if (!previous) return;
+
+    const side = movedBy === 'w' ? 'white' : 'black';
+    const other = movedBy === 'w' ? 'black' : 'white';
+
+    game.timeControl[side] = clockAfterMove(
+      game.timeControl.turnTime,
+      spentSince(previous, at),
+      game.timeControl.increment,
+    );
+    game.timeControl.turnTime = game.timeControl[other];
+  }
+
+  private async finishOnTime(game: GameDocument, at: Date): Promise<void> {
+    const projection = projectGame(game, at);
+
+    game.timeControl.white = projection.timeControl.white;
+    game.timeControl.black = projection.timeControl.black;
+    game.status.state = projection.status.state;
+    game.status.result = projection.status.result;
+    game.status.additionalInfo = projection.status.additionalInfo;
+    game.status.finishedAt = projection.status.finishedAt;
+
+    await this.persist(game);
   }
 
   private finish(

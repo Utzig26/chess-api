@@ -19,6 +19,7 @@ export const StatusMessage = {
   waitingForPlayers: 'Waiting for the players to connect',
   waitingForFirstMove: 'Waiting for the first move',
   inProgress: 'Game in progress',
+  wonOnTime: 'Win on time',
 } as const;
 
 export const OutcomeMessage = {

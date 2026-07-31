@@ -60,6 +60,8 @@ describe('GamesService', () => {
       whitePlayer: { id: creator.id, username: creator.username },
       blackPlayer: null,
       status: { state: GameState.waitingForPlayers, additionalInfo: '' },
+      timeControl: { white: 600, black: 600, increment: 5, turnTime: 600 },
+      history: [],
       startedAt: null,
       save: jest.fn().mockImplementation(function (this: unknown) {
         return this;
@@ -246,6 +248,8 @@ describe('GamesService', () => {
         pgn: '',
         fen: '',
         history: [],
+        startedAt: new Date(),
+        timeControl: { white: 600, black: 600, increment: 5, turnTime: 600 },
         status: {
           state: GameState.waitingForFirstMove,
           additionalInfo: '',
@@ -371,6 +375,71 @@ describe('GamesService', () => {
         ).rejects.toThrow(ConflictException);
       },
     );
+
+    it('charges the first white move against the moment the game started', async () => {
+      const startedAt = new Date(Date.now() - 12_000);
+      const game = playableGame({ startedAt });
+      findReturning(game);
+
+      await service.move('brave-crimson-knight-e4', creator, 'e4');
+
+      expect(game.timeControl.white).toBeCloseTo(593, 0);
+      expect(game.timeControl.black).toBe(600);
+      expect(game.timeControl.turnTime).toBe(600);
+    });
+
+    it('charges a later move against the previous move of the same side', async () => {
+      const now = Date.now();
+      const game = playableGame({
+        turn: 'b',
+        pgn: '1. e4',
+        startedAt: new Date(now - 40_000),
+        history: [
+          { san: 'e4', moveNumber: 1, timestamp: new Date(now - 30_000) },
+        ],
+        status: {
+          state: GameState.active,
+          additionalInfo: '',
+          result: null,
+          finishedAt: null,
+        },
+      });
+      findReturning(game);
+
+      await service.move('brave-crimson-knight-e4', opponent, 'e5');
+
+      expect(game.timeControl.black).toBeCloseTo(575, 0);
+      expect(game.timeControl.turnTime).toBe(game.timeControl.white);
+    });
+
+    it('finishes the game on time instead of accepting the move', async () => {
+      const now = Date.now();
+      const game = playableGame({
+        pgn: '1. e4 e5',
+        startedAt: new Date(now - 700_000),
+        history: [
+          { san: 'e4', moveNumber: 1, timestamp: new Date(now - 700_000) },
+          { san: 'e5', moveNumber: 1, timestamp: new Date(now - 601_000) },
+        ],
+        status: {
+          state: GameState.active,
+          additionalInfo: '',
+          result: null,
+          finishedAt: null,
+        },
+      });
+      findReturning(game);
+
+      await expect(
+        service.move('brave-crimson-knight-e4', creator, 'Nf3'),
+      ).rejects.toThrow('Time is up');
+
+      expect(game.status.state).toBe(GameState.finished);
+      expect(game.status.result).toBe(GameResult.blackWins);
+      expect(game.status.additionalInfo).toBe(StatusMessage.wonOnTime);
+      expect(game.timeControl.white).toBe(0);
+      expect(game.save).toHaveBeenCalled();
+    });
 
     it('reports a conflict when the game changed underneath the request', async () => {
       findReturning(
