@@ -18,4 +18,13 @@ export type GameResultValue = (typeof GameResult)[keyof typeof GameResult];
 export const StatusMessage = {
   waitingForPlayers: 'Waiting for the players to connect',
   waitingForFirstMove: 'Waiting for the first move',
+  inProgress: 'Game in progress',
+} as const;
+
+export const OutcomeMessage = {
+  checkmate: 'Checkmate',
+  stalemate: 'Stalemate',
+  insufficientMaterial: 'Draw by insufficient material',
+  threefoldRepetition: 'Draw by threefold repetition',
+  fiftyMoveRule: 'Draw by the fifty move rule',
 } as const;
