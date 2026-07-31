@@ -23,9 +23,7 @@ async function bootstrap(): Promise<void> {
     app,
     new DocumentBuilder()
       .setTitle('Chess API')
-      .setDescription(
-        'Asynchronous multiplayer chess. Every response is wrapped in the same envelope.',
-      )
+      .setDescription('Asynchronous Multiplayer chess.')
       .setVersion('1.0')
       .addBearerAuth()
       .build(),
