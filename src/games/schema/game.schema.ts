@@ -82,6 +82,7 @@ export class MoveRecord {
 
 @Schema({
   timestamps: true,
+  optimisticConcurrency: true,
   toJSON: { versionKey: false },
 })
 export class Game {

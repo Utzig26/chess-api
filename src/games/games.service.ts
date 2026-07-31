@@ -1,25 +1,40 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Error as MongooseError, Model, Types } from 'mongoose';
 import { MongoServerError } from 'mongodb';
 import { Game, GameDocument, GamePlayer } from './schema/game.schema';
 import { CreateGameDto } from './dto/create-game.dto';
 import { generateResourceId } from './resource-id';
-import { GameState, StatusMessage } from './interfaces/game.interface';
-import { PieceColor } from '../chess/interfaces/chess.interface';
+import {
+  GameResult,
+  GameState,
+  OutcomeMessage,
+  StatusMessage,
+} from './interfaces/game.interface';
+import { ChessEngineService } from '../chess/chess-engine.service';
+import { GameOutcome, PieceColor } from '../chess/interfaces/chess.interface';
 import { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 
 const RESOURCE_ID_ATTEMPTS = 5;
 const DUPLICATE_KEY_ERROR = 11000;
+const PLAYABLE_STATES: string[] = [
+  GameState.waitingForFirstMove,
+  GameState.active,
+];
 
 @Injectable()
 export class GamesService {
-  constructor(@InjectModel(Game.name) private gameModel: Model<GameDocument>) {}
+  constructor(
+    @InjectModel(Game.name) private gameModel: Model<GameDocument>,
+    private chessEngine: ChessEngineService,
+  ) {}
 
   async create(
     user: AuthenticatedUser,
@@ -66,7 +81,53 @@ export class GamesService {
     game.status.additionalInfo = StatusMessage.waitingForFirstMove;
     game.startedAt = new Date();
 
-    return game.save();
+    return this.persist(game);
+  }
+
+  async move(
+    resourceId: string,
+    user: AuthenticatedUser,
+    san: string,
+  ): Promise<GameDocument> {
+    const game = await this.findPlayableGame(resourceId);
+    const colors = this.colorsOf(game, user.id);
+
+    if (colors.length === 0) {
+      throw new ForbiddenException('You are not a player in this game');
+    }
+    if (!colors.includes(game.turn)) {
+      throw new ConflictException('It is not your turn');
+    }
+
+    const applied = this.chessEngine.applyMove(game.pgn, san);
+    if (!applied) {
+      throw new UnprocessableEntityException('Illegal move');
+    }
+
+    game.history.push({
+      san: applied.san,
+      moveNumber: Math.floor(game.history.length / 2) + 1,
+      timestamp: new Date(),
+    });
+    game.fen = applied.fen;
+    game.pgn = applied.pgn;
+    game.turn = applied.turn;
+    game.status.state = GameState.active;
+    game.status.additionalInfo = StatusMessage.inProgress;
+
+    if (applied.outcome) {
+      this.finish(game, applied.outcome, applied.color);
+    }
+
+    return this.persist(game);
+  }
+
+  async legalMoves(
+    resourceId: string,
+  ): Promise<{ game: GameDocument; moves: string[] }> {
+    const game = await this.findPlayableGame(resourceId);
+
+    return { game, moves: this.chessEngine.legalMoves(game.pgn) };
   }
 
   async findByResourceId(resourceId: string): Promise<GameDocument> {
@@ -76,6 +137,53 @@ export class GamesService {
     }
 
     return game;
+  }
+
+  private async findPlayableGame(resourceId: string): Promise<GameDocument> {
+    const game = await this.findByResourceId(resourceId);
+
+    if (!PLAYABLE_STATES.includes(game.status.state)) {
+      throw new ConflictException('This game is not accepting moves');
+    }
+
+    return game;
+  }
+
+  private colorsOf(game: GameDocument, userId: string): PieceColor[] {
+    const colors: PieceColor[] = [];
+
+    if (game.whitePlayer?.id.toString() === userId) colors.push('w');
+    if (game.blackPlayer?.id.toString() === userId) colors.push('b');
+
+    return colors;
+  }
+
+  private finish(
+    game: GameDocument,
+    outcome: GameOutcome,
+    movedBy: PieceColor,
+  ): void {
+    game.status.state = GameState.finished;
+    game.status.finishedAt = new Date();
+    game.status.additionalInfo = OutcomeMessage[outcome];
+    game.status.result =
+      outcome === 'checkmate'
+        ? movedBy === 'w'
+          ? GameResult.whiteWins
+          : GameResult.blackWins
+        : GameResult.draw;
+  }
+
+  private async persist(game: GameDocument): Promise<GameDocument> {
+    try {
+      return await game.save();
+    } catch (error) {
+      if (error instanceof MongooseError.VersionError) {
+        throw new ConflictException('Game state changed, retry');
+      }
+
+      throw error;
+    }
   }
 
   private playerFrom(user: AuthenticatedUser): GamePlayer {

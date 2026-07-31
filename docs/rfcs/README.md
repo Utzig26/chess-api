@@ -10,7 +10,7 @@ esses problemas, e o documento registra tanto o que ela acertou quanto onde erro
 |---|---|---|---|
 | [001](001-chess-engine-adapter.md) | Chess engine adapter | **Implementado** | — |
 | [002](002-game-lifecycle.md) | Game lifecycle | **Implementado** | 001 |
-| [003](003-moves.md) | Moves | Proposto | 001, 002 |
+| [003](003-moves.md) | Moves | **Implementado** | 001, 002 |
 | [004](004-clock.md) | Clock and time control | Proposto | 002, 003 |
 | [005](005-game-termination.md) | Game termination | Proposto | 001, 003, 004 |
 | [006](006-realtime-stream.md) | Real time stream | Proposto | 002, 003, 005 |

@@ -1,6 +1,6 @@
 # RFC-003: Moves
 
-**Status:** Proposto
+**Status:** Implementado
 **Depende de:** RFC-001, RFC-002
 
 ## Summary
@@ -92,6 +92,25 @@ alternando**; primeiro lance leva `W → A`; `__v` divergente devolve conflito.
 fora da vez → 409; SAN inválido (`Xz9`, `""`, `"e4e5e6e7e8"`) → 400 ou 422; lance em
 partida em `WP` → 409; **dois `POST /move` disparados em paralelo: um 200 e um 409, e o
 histórico tem exatamente um lance a mais**.
+
+## Notas de implementação
+
+**A concorrência otimista saiu de graça.** Em vez de condicionar o update ao `__v` na mão,
+basta `optimisticConcurrency: true` nas opções do `@Schema`: o Mongoose passa a incluir o
+`__v` no filtro de todo `save()` e lança `VersionError` quando ele não bate. O service só
+traduz isso para 409. Vale para o `join` também, onde duas entradas simultâneas na mesma
+vaga passam a ser resolvidas pelo banco.
+
+**A numeração do lance não vem do motor.** O `moveNumber()` do chess.js descreve a
+*posição*, então depois de `1. e4` ele ainda devolve 1, e depois de `1... e5` devolve 2 —
+usar isso direto numeraria o lance das pretas como se fosse o par seguinte. O número do
+registro é derivado do próprio histórico: `floor(history.length / 2) + 1`. Um teste fixa a
+sequência esperada em `[1, 1, 2]`.
+
+**A terminação automática entrou junto.** Um lance que dá mate precisa encerrar a partida
+no mesmo `save()`, senão o estado fica inconsistente entre a resposta e o banco. Desistência
+e empate por acordo continuam com a RFC-005, que vai absorver este `finish()` na tabela de
+terminação.
 
 ## Open questions
 

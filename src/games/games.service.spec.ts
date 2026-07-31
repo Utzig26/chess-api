@@ -2,13 +2,22 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import {
   ConflictException,
+  ForbiddenException,
   InternalServerErrorException,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { MongoServerError } from 'mongodb';
+import { Error as MongooseError } from 'mongoose';
 import { GamesService } from './games.service';
+import { ChessEngineService } from '../chess/chess-engine.service';
 import { Game, GameDocument } from './schema/game.schema';
-import { GameState, StatusMessage } from './interfaces/game.interface';
+import {
+  GameResult,
+  GameState,
+  OutcomeMessage,
+  StatusMessage,
+} from './interfaces/game.interface';
 import { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 
 describe('GamesService', () => {
@@ -23,8 +32,19 @@ describe('GamesService', () => {
     id: '507f1f77bcf86cd799439012',
     username: 'hikaru',
   };
+  const spectator: AuthenticatedUser = {
+    id: '507f1f77bcf86cd799439013',
+    username: 'fabiano',
+  };
 
   const timeControl = { white: 600, black: 600, increment: 5 };
+
+  const versionConflict = () =>
+    new MongooseError.VersionError(
+      { _doc: { _id: 'x' }, modifiedPaths: () => ['turn'] } as never,
+      0,
+      ['turn'],
+    );
 
   const duplicateKey = () => {
     const error = new MongoServerError({ message: 'duplicate' });
@@ -56,6 +76,7 @@ describe('GamesService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         GamesService,
+        ChessEngineService,
         { provide: getModelToken(Game.name), useValue: model },
       ],
     }).compile();
@@ -211,6 +232,185 @@ describe('GamesService', () => {
 
       await expect(
         service.join('brave-crimson-knight-e4', opponent),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('move', () => {
+    const playableGame = (overrides: Record<string, unknown> = {}) =>
+      ({
+        resourceId: 'brave-crimson-knight-e4',
+        whitePlayer: { id: creator.id, username: creator.username },
+        blackPlayer: { id: opponent.id, username: opponent.username },
+        turn: 'w',
+        pgn: '',
+        fen: '',
+        history: [],
+        status: {
+          state: GameState.waitingForFirstMove,
+          additionalInfo: '',
+          result: null,
+          finishedAt: null,
+        },
+        save: jest.fn().mockImplementation(function (this: unknown) {
+          return this;
+        }),
+        ...overrides,
+      }) as unknown as GameDocument;
+
+    const findReturning = (game: GameDocument | null) =>
+      model.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(game),
+      });
+
+    it('applies a legal move and hands the turn over', async () => {
+      findReturning(playableGame());
+
+      const game = await service.move('brave-crimson-knight-e4', creator, 'e4');
+
+      expect(game.turn).toBe('b');
+      expect(game.pgn).toContain('e4');
+      expect(game.history).toHaveLength(1);
+      expect(game.history[0].san).toBe('e4');
+    });
+
+    it('activates the game on the first move', async () => {
+      findReturning(playableGame());
+
+      const game = await service.move('brave-crimson-knight-e4', creator, 'e4');
+
+      expect(game.status.state).toBe(GameState.active);
+      expect(game.status.additionalInfo).toBe(StatusMessage.inProgress);
+    });
+
+    it('numbers the move pair the way a scoresheet does', async () => {
+      const game = playableGame();
+      findReturning(game);
+
+      await service.move('brave-crimson-knight-e4', creator, 'e4');
+      await service.move('brave-crimson-knight-e4', opponent, 'e5');
+      await service.move('brave-crimson-knight-e4', creator, 'Nf3');
+
+      expect(game.history.map((move) => move.moveNumber)).toEqual([1, 1, 2]);
+    });
+
+    it('rejects an illegal move without saving', async () => {
+      const game = playableGame();
+      findReturning(game);
+
+      await expect(
+        service.move('brave-crimson-knight-e4', creator, 'e5'),
+      ).rejects.toThrow(UnprocessableEntityException);
+      expect(game.save).not.toHaveBeenCalled();
+      expect(game.history).toHaveLength(0);
+    });
+
+    it('rejects notation the engine cannot read', async () => {
+      findReturning(playableGame());
+
+      await expect(
+        service.move('brave-crimson-knight-e4', creator, 'Xz9'),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('rejects someone who holds neither colour', async () => {
+      findReturning(playableGame());
+
+      await expect(
+        service.move('brave-crimson-knight-e4', spectator, 'e4'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('rejects a player moving out of turn', async () => {
+      findReturning(playableGame());
+
+      await expect(
+        service.move('brave-crimson-knight-e4', opponent, 'e5'),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('lets a player holding both colours move each side in turn', async () => {
+      const game = playableGame({
+        blackPlayer: { id: creator.id, username: creator.username },
+      });
+      findReturning(game);
+
+      await service.move('brave-crimson-knight-e4', creator, 'e4');
+      await service.move('brave-crimson-knight-e4', creator, 'e5');
+
+      expect(game.history).toHaveLength(2);
+      expect(game.turn).toBe('w');
+    });
+
+    it('finishes the game when the move gives mate', async () => {
+      const game = playableGame({
+        pgn: '1. f3 e5 2. g4',
+        turn: 'b',
+      });
+      findReturning(game);
+
+      const result = await service.move(
+        'brave-crimson-knight-e4',
+        opponent,
+        'Qh4#',
+      );
+
+      expect(result.status.state).toBe(GameState.finished);
+      expect(result.status.result).toBe(GameResult.blackWins);
+      expect(result.status.additionalInfo).toBe(OutcomeMessage.checkmate);
+      expect(result.status.finishedAt).toBeInstanceOf(Date);
+    });
+
+    it.each([GameState.waitingForPlayers, GameState.finished])(
+      'refuses a move while the game is in %s',
+      async (state) => {
+        findReturning(playableGame({ status: { state, additionalInfo: '' } }));
+
+        await expect(
+          service.move('brave-crimson-knight-e4', creator, 'e4'),
+        ).rejects.toThrow(ConflictException);
+      },
+    );
+
+    it('reports a conflict when the game changed underneath the request', async () => {
+      findReturning(
+        playableGame({
+          save: jest.fn().mockRejectedValue(versionConflict()),
+        }),
+      );
+
+      await expect(
+        service.move('brave-crimson-knight-e4', creator, 'e4'),
+      ).rejects.toThrow('Game state changed, retry');
+    });
+  });
+
+  describe('legalMoves', () => {
+    it('lists the twenty opening moves', async () => {
+      model.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(
+          waitingGame({
+            pgn: '',
+            status: {
+              state: GameState.waitingForFirstMove,
+              additionalInfo: '',
+            },
+          }),
+        ),
+      });
+
+      const { moves } = await service.legalMoves('brave-crimson-knight-e4');
+
+      expect(moves).toHaveLength(20);
+    });
+
+    it('refuses a game that is not accepting moves', async () => {
+      model.findOne.mockReturnValue({
+        exec: jest.fn().mockResolvedValue(waitingGame()),
+      });
+
+      await expect(
+        service.legalMoves('brave-crimson-knight-e4'),
       ).rejects.toThrow(ConflictException);
     });
   });
