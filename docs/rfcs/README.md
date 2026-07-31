@@ -8,7 +8,7 @@ esses problemas, e o documento registra tanto o que ela acertou quanto onde erro
 
 | # | Título | Status | Depende de |
 |---|---|---|---|
-| [001](001-chess-engine-adapter.md) | Chess engine adapter | Proposto | — |
+| [001](001-chess-engine-adapter.md) | Chess engine adapter | **Implementado** | — |
 | [002](002-game-lifecycle.md) | Game lifecycle | Proposto | 001 |
 | [003](003-moves.md) | Moves | Proposto | 001, 002 |
 | [004](004-clock.md) | Clock and time control | Proposto | 002, 003 |

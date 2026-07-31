@@ -21,5 +21,23 @@ module.exports = {
     '@typescript-eslint/explicit-function-return-type': 'off',
     '@typescript-eslint/explicit-module-boundary-types': 'off',
     '@typescript-eslint/no-explicit-any': 'off',
+    'no-restricted-imports': [
+      'error',
+      {
+        paths: [
+          {
+            name: 'chess.js',
+            message:
+              'Only src/chess may import the engine. Consume it through ChessEngineService.',
+          },
+        ],
+      },
+    ],
   },
+  overrides: [
+    {
+      files: ['src/chess/**/*.ts'],
+      rules: { 'no-restricted-imports': 'off' },
+    },
+  ],
 };

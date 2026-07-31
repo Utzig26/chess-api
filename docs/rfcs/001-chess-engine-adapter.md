@@ -1,6 +1,6 @@
 # RFC-001: Chess engine adapter
 
-**Status:** Proposto
+**Status:** Implementado
 **Depende de:** —
 
 ## Summary
@@ -27,26 +27,36 @@ Sem esta RFC nada mais anda: as RFCs 002 a 006 dependem de saber o que é uma po
 src/chess/
 ├── chess.module.ts
 ├── chess-engine.service.ts       única importação de chess.js no projeto
-├── interfaces/
-│   ├── position.interface.ts
-│   └── move-result.interface.ts
+├── interfaces/chess.interface.ts
 └── chess-engine.service.spec.ts
 ```
 
 Contrato:
 
 ```ts
-loadGame(pgn: string): LoadedGame
-legalMoves(game: LoadedGame): string[]
-applyMove(game: LoadedGame, san: string): MoveResult
-outcome(game: LoadedGame): GameOutcome | null
-turn(game: LoadedGame): 'w' | 'b'
+readonly initialFen: string
+position(pgn: string): ChessPosition
+legalMoves(pgn: string): string[]
+applyMove(pgn: string, san: string): AppliedMove | null
 ```
 
-`LoadedGame` é um tipo opaco do módulo. Nenhum consumidor recebe um `Chess`.
-
-`MoveResult` traz `{ san, fen, pgn, moveNumber, color }`.
+`ChessPosition` é `{ fen, pgn, turn, moveNumber, outcome }`.
+`AppliedMove` estende com `{ san, color }`.
 `GameOutcome` é `'checkmate' | 'stalemate' | 'insufficientMaterial' | 'threefoldRepetition' | 'fiftyMoveRule'`.
+
+> **Refinamento na implementação.** A proposta original era `loadGame(pgn)` devolvendo um
+> `LoadedGame` opaco que as outras chamadas receberiam. O serviço acabou **stateless, com o
+> PGN como único parâmetro**: some o problema de vazar um `Chess` disfarçado de tipo opaco,
+> cada método vira função pura e o teste não precisa montar handle nenhum. O custo é
+> reparsear o PGN por chamada — um fluxo de lance faz dois parses, na casa dos
+> microssegundos, contra um round-trip de Mongo.
+
+A fronteira não é convenção: uma regra `no-restricted-imports` no ESLint quebra o build se
+qualquer arquivo fora de `src/chess` importar `chess.js`.
+
+Posições arbitrárias entram por PGN com cabeçalho `[SetUp "1"] [FEN "…"]`, que o `chess.js`
+honra. É como os testes montam mate, afogamento e material insuficiente sem precisar de uma
+entrada por FEN no contrato público — e é o que a RFC-005 vai usar.
 
 ## Data model
 
@@ -72,7 +82,9 @@ PGN vence — e um teste garante que não divergem.
 ## Behaviour
 
 - `applyMove` valida o SAN contra os lances legais da posição. Lance ilegal **não** lança:
-  devolve um resultado de erro tipado, e quem decide o status HTTP é a RFC-003.
+  devolve `null`, e quem decide o status HTTP é a RFC-003. O `chess.js` 1.x lança em
+  `move()` para lance ilegal — o adapter converte isso em valor de retorno, para que a
+  regra de negócio não dependa de `try/catch`.
 - O FEN inicial completo (`rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1`)
   passa a ser constante do módulo. O legado guardava só a parte de peças (§10.4 do
   legado), e qualquer cliente que confiasse nele antes do primeiro lance recebia FEN
@@ -101,4 +113,9 @@ paga por isso:
 
 ## Open questions
 
-Nenhuma. A decisão de motor e de persistência foi tomada; esta RFC só a registra.
+1. **Ordem da tabela de terminação.** `insufficientMaterial` é avaliado antes de
+   `stalemate` e de `threefoldRepetition`, o que importa para a RFC-005: uma desistência
+   numa posição de material insuficiente vira empate. Xeque-mate vem antes de tudo, e há
+   teste para isso.
+2. **Notação UCI.** O adapter é o lugar natural para aceitar `e2e4` além de SAN, mas
+   dobraria a matriz de teste da RFC-003. Fica para depois do básico.
