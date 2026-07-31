@@ -1,4 +1,4 @@
-import { Env, validateEnv } from './env.schema';
+import { Duration, Env, validateEnv } from './env.schema';
 
 export interface AppConfig {
   environment: Env['NODE_ENV'];
@@ -16,7 +16,7 @@ export interface DatabaseConfig {
 
 export interface JwtConfig {
   secret: string;
-  accessTtl: string;
+  accessTtl: Duration;
 }
 
 export interface Configuration {

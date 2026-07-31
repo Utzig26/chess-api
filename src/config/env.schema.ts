@@ -2,6 +2,13 @@ import { z } from 'zod';
 
 const durationPattern = /^\d+(ms|s|m|h|d)$/;
 
+export type Duration = `${number}${'ms' | 's' | 'm' | 'h' | 'd'}`;
+
+const duration = z.custom<Duration>(
+  (value) => typeof value === 'string' && durationPattern.test(value),
+  'must be a number followed by ms, s, m, h or d',
+);
+
 export const envSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'test', 'production'])
@@ -14,7 +21,7 @@ export const envSchema = z.object({
   DB_PASSWORD: z.string().default(''),
 
   JWT_SECRET: z.string().min(32),
-  JWT_ACCESS_TTL: z.string().regex(durationPattern).default('15m'),
+  JWT_ACCESS_TTL: duration.default('15m'),
 
   CORS_ORIGIN: z.string().default('*'),
   LOG_LEVEL: z

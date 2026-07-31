@@ -11,9 +11,10 @@ import { WRAP_MESSAGE_KEY } from '../decorators/wrap-message.decorator';
 import { SuccessResponse } from '../interfaces/response.interface';
 
 @Injectable()
-export class GlobalResponseInterceptor<T>
-  implements NestInterceptor<T, SuccessResponse<T>>
-{
+export class GlobalResponseInterceptor<T> implements NestInterceptor<
+  T,
+  SuccessResponse<T>
+> {
   constructor(private readonly reflector: Reflector) {}
 
   intercept(
