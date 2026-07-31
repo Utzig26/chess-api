@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { GamesModule } from './games/games.module';
 import { CoreModule } from './common/core.module';
 import { ConfigModule } from './config/config.module';
 import { DatabaseConfig } from './config/configuration';
@@ -33,6 +34,7 @@ import { DatabaseConfig } from './config/configuration';
     }),
     AuthModule,
     UsersModule,
+    GamesModule,
   ],
 })
 export class AppModule {}

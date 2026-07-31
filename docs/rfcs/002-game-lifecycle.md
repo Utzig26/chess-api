@@ -1,6 +1,6 @@
 # RFC-002: Game lifecycle
 
-**Status:** Proposto
+**Status:** Implementado
 **Depende de:** RFC-001
 
 ## Summary
@@ -134,6 +134,19 @@ conflito; **o criador consegue ocupar a segunda cor**; colisão de `resourceId` 
 (9 segundos, 5401, incremento 11, negativo, não-inteiro, campo faltando); criar sem token →
 401; `join` em partida inexistente → 404; `join` duas vezes → 409; **`id` do jogador não
 aparece em nenhuma resposta**; FEN inicial é completo e parseável.
+
+## Notas de implementação
+
+Duas armadilhas que só apareceram com o teste rodando, e que valem para as próximas RFCs:
+
+**`@ValidateNested()` não exige presença.** Um corpo sem `timeControl` passava pela
+validação e explodia no service ao desestruturar. `@ValidateNested` só valida o objeto
+quando ele existe — é preciso `@IsObject()` junto. O teste "rejects a missing time control"
+é o que pegou.
+
+**`required: true` com `default: ''` no Mongoose é contraditório.** O Mongoose trata string
+vazia como ausente, então o `pgn` de uma partida nova falhava a própria validação de
+schema. Campo com default vazio não leva `required`.
 
 ## Open questions
 
