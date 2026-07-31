@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { PieceColor } from '../../chess/interfaces/chess.interface';
 import { GameResultValue, GameStateValue } from '../interfaces/game.interface';
 import { GameDocument } from '../schema/game.schema';
+import { projectGame } from '../game-projection';
 
 class GameStatusDto {
   @ApiProperty({ enum: ['WP', 'W', 'A', 'F'], example: 'WP' })
@@ -76,7 +77,9 @@ export class GameResponseDto {
   @ApiProperty({ example: '2026-07-28T12:00:00.000Z' })
   readonly createdAt: Date;
 
-  constructor(game: GameDocument) {
+  constructor(game: GameDocument, now: Date = new Date()) {
+    const projection = projectGame(game, now);
+
     this.id = game.resourceId;
     this.whitePlayer = game.whitePlayer?.username ?? null;
     this.blackPlayer = game.blackPlayer?.username ?? null;
@@ -88,17 +91,8 @@ export class GameResponseDto {
       moveNumber: move.moveNumber,
       timestamp: move.timestamp,
     }));
-    this.timeControl = {
-      white: game.timeControl.white,
-      black: game.timeControl.black,
-      increment: game.timeControl.increment,
-    };
-    this.status = {
-      state: game.status.state,
-      result: game.status.result,
-      additionalInfo: game.status.additionalInfo,
-      finishedAt: game.status.finishedAt,
-    };
+    this.timeControl = projection.timeControl;
+    this.status = projection.status;
     this.createdAt = game.get('createdAt');
   }
 }

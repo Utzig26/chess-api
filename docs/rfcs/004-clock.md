@@ -1,6 +1,6 @@
 # RFC-004: Clock and time control
 
-**Status:** Proposto
+**Status:** Implementado
 **Depende de:** RFC-002, RFC-003
 
 ## Summary
@@ -113,6 +113,24 @@ torna o mecanismo testável — mais um motivo para a função ser pura.
 - partida com `white: 10` lida depois do estouro aparece encerrada por tempo;
 - um `POST /move` depois do estouro devolve 409 e persiste o fim;
 - criar com `timeControl` fora da faixa → 400.
+
+## Notas de implementação
+
+**A projeção mora na camada de view.** `projectGame(game, now)` é função pura em
+`game-projection.ts`, e quem a chama é o `GameResponseDto` no construtor. Controllers e
+service não precisam saber que existe uma projeção — quem serializa uma partida recebe os
+relógios já descontados, e não há caminho de leitura que possa esquecer de projetar.
+
+**O 409 de tempo esgotado não carrega o resultado.** A RFC dizia que "a resposta traz o
+resultado", mas o envelope de erro não tem `data` — inventar um seria abrir exceção no
+contrato justamente na camada que existe para não ter exceção. A mutação persiste o fim e
+devolve `409 Time is up`; a leitura seguinte mostra `F`, o `result` e o `finishedAt`. Há
+teste para os dois lados.
+
+**O teste de "GET não escreve" precisa de um relógio manipulável, não de espera.** O e2e
+recua `startedAt` e os timestamps do histórico direto no documento, e só então lê. Nenhum
+teste dorme, e a asserção que fecha a dívida do §10.6 é comparar o `updatedAt` gravado
+antes e depois de três leituras.
 
 ## Open questions
 
