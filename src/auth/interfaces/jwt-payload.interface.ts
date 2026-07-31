@@ -6,6 +6,12 @@ export interface JwtPayload {
   type: TokenType;
 }
 
+export interface RefreshTokenPayload extends JwtPayload {
+  type: 'refresh';
+  family: string;
+  exp: number;
+}
+
 export interface AuthenticatedUser {
   id: string;
   username: string;
