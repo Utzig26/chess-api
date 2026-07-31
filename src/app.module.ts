@@ -1,24 +1,38 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
-import { ConfigModule } from '@nestjs/config';
+import { CoreModule } from './common/core.module';
+import { ConfigModule } from './config/config.module';
+import { DatabaseConfig } from './config/configuration';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
-    MongooseModule.forRoot(process.env.DB_URI, {
-      dbName: process.env.DB_NAME,
-      authSource: 'admin',
-      auth: {
-        username: process.env.DB_USERNAME,
-        password: process.env.DB_PASSWORD,
+    ConfigModule,
+    CoreModule,
+    MongooseModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const database = config.getOrThrow<DatabaseConfig>('database');
+
+        return {
+          uri: database.uri,
+          dbName: database.name,
+          ...(database.username
+            ? {
+                authSource: 'admin',
+                auth: {
+                  username: database.username,
+                  password: database.password,
+                },
+              }
+            : {}),
+        };
       },
     }),
     AuthModule,
     UsersModule,
   ],
-  controllers: [],
-  providers: [],
 })
 export class AppModule {}

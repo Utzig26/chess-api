@@ -1,0 +1,2306 @@
+<title>Chess API — a versão legada</title>
+
+<style>
+  :root {
+    --paper:      #F4F5F2;
+    --panel:      #EBEDE8;
+    --ink:        #1A1D1C;
+    --ink-soft:   #3D4341;
+    --muted:      #6B7370;
+    --rule:       #DBDED7;
+    --rule-soft:  #E6E8E2;
+    --accent:     #2F5D57;
+    --accent-dim: #7FA39D;
+    --sev-bug:    #A03232;
+    --sev-arch:   #B26A22;
+    --sev-sec:    #8A5A9B;
+    --sev-cosm:   #5E7F8C;
+
+    --serif: 'Iowan Old Style', 'Charter', 'Bitstream Charter', 'Sitka Text', Georgia, 'Times New Roman', serif;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --mono: ui-monospace, 'SF Mono', 'JetBrains Mono', 'DejaVu Sans Mono', Menlo, Consolas, monospace;
+
+    --measure: 68ch;
+    --rail: 16rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:      #101413;
+      --panel:      #171C1A;
+      --ink:        #E4E7E2;
+      --ink-soft:   #C2C8C3;
+      --muted:      #8B948F;
+      --rule:       #262C29;
+      --rule-soft:  #1E2321;
+      --accent:     #7FBDB1;
+      --accent-dim: #3F6560;
+      --sev-bug:    #DE8484;
+      --sev-arch:   #D9A25E;
+      --sev-sec:    #BE96CC;
+      --sev-cosm:   #92B5C2;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:      #101413;
+    --panel:      #171C1A;
+    --ink:        #E4E7E2;
+    --ink-soft:   #C2C8C3;
+    --muted:      #8B948F;
+    --rule:       #262C29;
+    --rule-soft:  #1E2321;
+    --accent:     #7FBDB1;
+    --accent-dim: #3F6560;
+    --sev-bug:    #DE8484;
+    --sev-arch:   #D9A25E;
+    --sev-sec:    #BE96CC;
+    --sev-cosm:   #92B5C2;
+  }
+
+  :root[data-theme="light"] {
+    --paper:      #F4F5F2;
+    --panel:      #EBEDE8;
+    --ink:        #1A1D1C;
+    --ink-soft:   #3D4341;
+    --muted:      #6B7370;
+    --rule:       #DBDED7;
+    --rule-soft:  #E6E8E2;
+    --accent:     #2F5D57;
+    --accent-dim: #7FA39D;
+    --sev-bug:    #A03232;
+    --sev-arch:   #B26A22;
+    --sev-sec:    #8A5A9B;
+    --sev-cosm:   #5E7F8C;
+  }
+
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- shell ---------- */
+
+  .shell {
+    max-width: 78rem;
+    margin: 0 auto;
+    padding: 0 clamp(1rem, 4vw, 3rem);
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: var(--rail) minmax(0, 1fr);
+    gap: clamp(2rem, 5vw, 4.5rem);
+    align-items: start;
+    padding-bottom: 6rem;
+  }
+
+  @media (max-width: 62rem) {
+    .layout { grid-template-columns: minmax(0, 1fr); gap: 2rem; }
+  }
+
+  /* ---------- masthead ---------- */
+
+  .masthead { padding: clamp(2.5rem, 6vw, 4.5rem) 0 0; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: .72rem;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1.1rem;
+  }
+
+  h1 {
+    font-family: var(--serif);
+    font-size: clamp(2.4rem, 6.5vw, 3.9rem);
+    line-height: 1.02;
+    letter-spacing: -.022em;
+    font-weight: 700;
+    text-wrap: balance;
+    max-width: 20ch;
+  }
+
+  .standfirst {
+    margin-top: 1.4rem;
+    max-width: 58ch;
+    font-size: 1.14rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+  }
+
+  /* 8 casas alternadas — o fio do masthead */
+  .board-rule {
+    height: 9px;
+    margin: 2.4rem 0 0;
+    background: repeating-linear-gradient(
+      90deg,
+      var(--accent) 0 3.125%,
+      transparent 3.125% 6.25%
+    );
+    opacity: .5;
+  }
+
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 2.6rem;
+    margin-top: 1.6rem;
+    padding-bottom: 2.6rem;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .fact { padding: .55rem 0; }
+
+  .fact dt {
+    font-family: var(--mono);
+    font-size: .66rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .fact dd {
+    font-family: var(--mono);
+    font-size: .95rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    margin-top: .18rem;
+  }
+
+  /* ---------- rail ---------- */
+
+  .rail {
+    position: sticky;
+    top: 2rem;
+    font-family: var(--sans);
+    font-size: .82rem;
+    line-height: 1.4;
+    padding-top: 3.2rem;
+  }
+
+  @media (max-width: 62rem) {
+    .rail {
+      position: static;
+      padding-top: 2rem;
+      border-bottom: 1px solid var(--rule);
+      padding-bottom: 1.5rem;
+    }
+  }
+
+  .rail-title {
+    font-family: var(--mono);
+    font-size: .66rem;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding-bottom: .9rem;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: .3rem;
+  }
+
+  .rail ol { list-style: none; }
+
+  .rail a {
+    display: grid;
+    grid-template-columns: 1.9rem minmax(0, 1fr);
+    gap: .35rem;
+    padding: .42rem 0;
+    color: var(--muted);
+    text-decoration: none;
+    border-bottom: 1px solid var(--rule-soft);
+    transition: color .13s ease;
+  }
+
+  .rail a .n {
+    font-family: var(--mono);
+    font-size: .74rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent-dim);
+  }
+
+  .rail a:hover { color: var(--ink); }
+  .rail a:hover .n { color: var(--accent); }
+  .rail a.on { color: var(--ink); font-weight: 600; }
+  .rail a.on .n { color: var(--accent); }
+
+  a:focus-visible,
+  .theme-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  /* ---------- content ---------- */
+
+  .content { min-width: 0; padding-top: 3.2rem; }
+
+  section { margin-bottom: 4.6rem; scroll-margin-top: 1.5rem; }
+
+  h2 {
+    display: grid;
+    grid-template-columns: 2.6rem minmax(0, 1fr);
+    align-items: baseline;
+    gap: .4rem;
+    font-size: clamp(1.55rem, 3.4vw, 2.05rem);
+    line-height: 1.12;
+    letter-spacing: -.016em;
+    font-weight: 700;
+    text-wrap: balance;
+    padding-bottom: .85rem;
+    border-bottom: 2px solid var(--ink);
+    margin-bottom: 1.7rem;
+  }
+
+  h2 .n {
+    font-family: var(--mono);
+    font-size: .82rem;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+    letter-spacing: 0;
+  }
+
+  h3 {
+    font-size: 1.18rem;
+    font-weight: 700;
+    letter-spacing: -.008em;
+    margin: 2.4rem 0 .8rem;
+    text-wrap: balance;
+  }
+
+  h4 {
+    font-family: var(--sans);
+    font-size: .93rem;
+    font-weight: 650;
+    margin: 1.9rem 0 .55rem;
+    text-wrap: balance;
+  }
+
+  p, ul, ol { max-width: var(--measure); }
+  p { margin-bottom: 1rem; }
+
+  .content ul, .content ol { padding-left: 1.15rem; margin-bottom: 1.2rem; }
+  .content li { margin-bottom: .42rem; }
+  .content li::marker { color: var(--accent-dim); }
+
+  strong { font-weight: 700; }
+  em { font-style: italic; }
+
+  a { color: var(--accent); text-underline-offset: .18em; }
+
+  code {
+    font-family: var(--mono);
+    font-size: .855em;
+    background: var(--panel);
+    padding: .1em .34em;
+    border-radius: 2px;
+    overflow-wrap: break-word;
+  }
+
+  pre {
+    font-family: var(--mono);
+    font-size: .8rem;
+    line-height: 1.62;
+    background: var(--panel);
+    border-left: 2px solid var(--accent-dim);
+    padding: 1rem 1.2rem;
+    overflow-x: auto;
+    margin-bottom: 1.4rem;
+    tab-size: 2;
+  }
+
+  pre code { background: none; padding: 0; font-size: inherit; }
+
+  .tree {
+    font-size: .78rem;
+    line-height: 1.72;
+    border-left-color: var(--rule);
+    color: var(--ink-soft);
+  }
+
+  /* ---------- callout ---------- */
+
+  .note {
+    max-width: var(--measure);
+    background: var(--panel);
+    border-left: 2px solid var(--accent);
+    padding: 1rem 1.25rem;
+    margin: 1.5rem 0;
+    font-size: .96rem;
+  }
+
+  .note p:last-child { margin-bottom: 0; }
+
+  .note-label {
+    display: block;
+    font-family: var(--mono);
+    font-size: .66rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: .45rem;
+  }
+
+  .note.warn { border-left-color: var(--sev-bug); }
+  .note.warn .note-label { color: var(--sev-bug); }
+
+  /* ---------- tables ---------- */
+
+  .scroll { overflow-x: auto; margin-bottom: 1.6rem; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 30rem;
+    font-family: var(--sans);
+    font-size: .855rem;
+    line-height: 1.45;
+  }
+
+  thead th {
+    text-align: left;
+    font-family: var(--mono);
+    font-size: .64rem;
+    font-weight: 500;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0 1rem .6rem 0;
+    border-bottom: 1px solid var(--ink);
+    white-space: nowrap;
+  }
+
+  tbody td {
+    padding: .62rem 1rem .62rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+  }
+
+  tbody tr:last-child td { border-bottom: 1px solid var(--rule); }
+  td code { font-size: .82em; }
+  .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .lock { width: 1.6rem; text-align: center; padding-right: .6rem; }
+
+  /* ---------- mermaid ---------- */
+
+  .figure {
+    margin: 1.8rem 0 2rem;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--panel);
+  }
+
+  .figure .mermaid {
+    display: block;
+    overflow-x: auto;
+    padding: 1.5rem 1.25rem;
+    background: none;
+    border: 0;
+    font-family: var(--mono);
+    text-align: center;
+  }
+
+  .figcap {
+    font-family: var(--sans);
+    font-size: .76rem;
+    color: var(--muted);
+    padding: .7rem 1.25rem;
+    border-top: 1px solid var(--rule);
+  }
+
+  .figcap b { color: var(--ink-soft); font-weight: 650; }
+
+  /* ---------- findings ---------- */
+
+  .sev-head {
+    display: flex;
+    align-items: baseline;
+    gap: .7rem;
+    font-family: var(--sans);
+    font-size: .78rem;
+    font-weight: 650;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    margin: 2.6rem 0 1.1rem;
+    padding-bottom: .5rem;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .sev-head::before {
+    content: "";
+    width: .62rem;
+    height: .62rem;
+    flex: none;
+    background: var(--dot, var(--muted));
+    transform: translateY(-.05em);
+  }
+
+  .sev-head .count {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: .72rem;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .finding {
+    max-width: var(--measure);
+    display: grid;
+    grid-template-columns: 2.2rem minmax(0, 1fr);
+    gap: .2rem .5rem;
+    padding: .9rem 0 1rem;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+
+  .finding > .fnum {
+    font-family: var(--mono);
+    font-size: .8rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--dot, var(--accent));
+    padding-top: .12rem;
+  }
+
+  .finding > .fbody > :first-child { margin-top: 0; }
+  .finding > .fbody > :last-child { margin-bottom: 0; }
+  .finding .ftitle { font-weight: 700; margin-bottom: .3rem; }
+  .finding pre { margin: .7rem 0 .5rem; font-size: .76rem; }
+  .finding .loc { font-family: var(--mono); font-size: .78rem; color: var(--muted); }
+
+  /* ---------- event/keep lists ---------- */
+
+  .keep { max-width: var(--measure); }
+
+  .decide {
+    max-width: var(--measure);
+    counter-reset: d;
+    list-style: none;
+    padding-left: 0 !important;
+  }
+
+  .decide > li {
+    counter-increment: d;
+    display: grid;
+    grid-template-columns: 2.2rem minmax(0, 1fr);
+    gap: .5rem;
+    padding: .85rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+
+  .decide > li::before {
+    content: counter(d, decimal-leading-zero);
+    font-family: var(--mono);
+    font-size: .78rem;
+    color: var(--sev-arch);
+    font-variant-numeric: tabular-nums;
+    padding-top: .16rem;
+  }
+
+  /* ---------- theme toggle ---------- */
+
+  .theme-btn {
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 20;
+    font-family: var(--mono);
+    font-size: .66rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: .5rem .75rem;
+    cursor: pointer;
+  }
+
+  .theme-btn:hover { color: var(--ink); border-color: var(--accent-dim); }
+
+  /* ---------- parte II ---------- */
+
+  .part-divider {
+    margin: 5.5rem 0 3.5rem;
+    padding-top: 2.2rem;
+    border-top: 2px solid var(--ink);
+  }
+
+  .part-divider .kicker {
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .17em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: .9rem;
+  }
+
+  .part-divider h2 {
+    display: block;
+    border: 0;
+    padding: 0;
+    margin: 0 0 1rem;
+    font-size: clamp(1.9rem, 4.6vw, 2.7rem);
+  }
+
+  .part-divider p {
+    color: var(--ink-soft);
+    font-size: 1.05rem;
+    margin-bottom: 0;
+  }
+
+  .board-rule.thin { height: 6px; margin: 1.8rem 0 0; opacity: .35; }
+
+  /* placar */
+  .scoreboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    margin: 1.8rem 0 2.2rem;
+  }
+
+  .score {
+    background: var(--paper);
+    padding: 1rem 1.1rem;
+  }
+
+  .score dt {
+    font-family: var(--mono);
+    font-size: .63rem;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: .4rem;
+  }
+
+  .score dd {
+    font-family: var(--mono);
+    font-size: 1.45rem;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+
+  .score dd small {
+    font-size: .72rem;
+    color: var(--muted);
+    letter-spacing: .02em;
+  }
+
+  /* chips de status */
+  .st {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: .63rem;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    padding: .18rem .45rem;
+    border: 1px solid currentColor;
+    border-radius: 2px;
+    line-height: 1.3;
+  }
+
+  .st-ok   { color: var(--accent); }
+  .st-part { color: var(--sev-arch); }
+  .st-no   { color: var(--sev-bug); }
+  .st-na   { color: var(--muted); }
+
+  /* antes / depois */
+  .ba {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+    gap: 1.1rem;
+    margin: 1.5rem 0 1.8rem;
+  }
+
+  .ba > div { min-width: 0; }
+
+  .ba h5 {
+    font-family: var(--mono);
+    font-size: .64rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: .5rem;
+  }
+
+  .ba .then h5 { color: var(--muted); }
+  .ba .now h5 { color: var(--accent); }
+  .ba pre { margin-bottom: 0; height: 100%; }
+  .ba .now pre { border-left-color: var(--accent); }
+
+  /* ---------- footer ---------- */
+
+  .colophon {
+    max-width: var(--measure);
+    font-family: var(--sans);
+    font-size: .78rem;
+    color: var(--muted);
+    padding-top: 1.8rem;
+    border-top: 1px solid var(--rule);
+  }
+</style>
+
+<div class="shell">
+
+  <header class="masthead">
+    <div class="eyebrow">Arqueologia de código · chess-api</div>
+    <h1>A API de xadrez que existia antes da reescrita</h1>
+    <p class="standfirst">
+      <strong>Parte I</strong> reconstrói tudo o que a versão antiga fazia, como fazia e o que
+      estava quebrado, a partir do último commit antes de a base ser apagada.
+      <strong>Parte II</strong> confronta isso com o que já existe na master hoje: o que a
+      reescrita consertou, o que ainda falta e o que ela quebrou de novo.
+    </p>
+
+    <div class="board-rule"></div>
+
+    <dl class="facts">
+      <div class="fact"><dt>Último commit vivo</dt><dd>80c7480</dd></div>
+      <div class="fact"><dt>Apagado em</dt><dd>eae6b37 · 2024-01-31</dd></div>
+      <div class="fact"><dt>Período</dt><dd>2022-07-28 → 2024-01-31</dd></div>
+      <div class="fact"><dt>Commits</dt><dd>132</dd></div>
+      <div class="fact"><dt>Arquivos</dt><dd>42</dd></div>
+      <div class="fact"><dt>Cobertura de testes</dt><dd>0%</dd></div>
+    </dl>
+  </header>
+
+  <div class="layout">
+
+    <nav class="rail" aria-label="Índice">
+      <div class="rail-title">Índice</div>
+      <ol>
+        <li><a href="#s1"><span class="n">01</span><span>O que é</span></a></li>
+        <li><a href="#s2"><span class="n">02</span><span>Árvore de módulos</span></a></li>
+        <li><a href="#s3"><span class="n">03</span><span>Estrutura de arquivos</span></a></li>
+        <li><a href="#s4"><span class="n">04</span><span>Features</span></a></li>
+        <li><a href="#s5"><span class="n">05</span><span>Endpoints</span></a></li>
+        <li><a href="#s6"><span class="n">06</span><span>Modelo de dados</span></a></li>
+        <li><a href="#s7"><span class="n">07</span><span>Máquina de estados</span></a></li>
+        <li><a href="#s8"><span class="n">08</span><span>Relógio e SSE</span></a></li>
+        <li><a href="#s9"><span class="n">09</span><span>Autenticação</span></a></li>
+        <li><a href="#s10"><span class="n">10</span><span>Bugs e dívidas</span></a></li>
+        <li><a href="#s11"><span class="n">11</span><span>O que levar adiante</span></a></li>
+      </ol>
+
+      <div class="rail-title" style="margin-top: 1.8rem;">Parte II · A reescrita</div>
+      <ol>
+        <li><a href="#s12"><span class="n">12</span><span>Onde a master está</span></a></li>
+        <li><a href="#s13"><span class="n">13</span><span>Veredito das dívidas</span></a></li>
+        <li><a href="#s14"><span class="n">14</span><span>O que quebrou no caminho</span></a></li>
+        <li><a href="#s15"><span class="n">15</span><span>Caminho até a paridade</span></a></li>
+      </ol>
+    </nav>
+
+    <main class="content">
+
+      <!-- ============ 1 ============ -->
+      <section id="s1">
+        <h2><span class="n">01</span><span>O que é</span></h2>
+
+        <p>
+          Uma API REST de <strong>xadrez multiplayer assíncrono</strong>. Dois jogadores se
+          conectam a uma partida identificada por um ID legível — algo como
+          <code>brave-crimson-knight-e4</code> — jogam alternando lances em notação SAN, e
+          qualquer pessoa pode acompanhar em tempo real via <strong>Server-Sent Events</strong>,
+          sem precisar estar logada.
+        </p>
+
+        <p>Três decisões definem o desenho inteiro:</p>
+
+        <ol>
+          <li><strong>O estado do tabuleiro mora no MongoDB</strong>, não em memória. Cada
+            requisição recarrega a partida do banco. Não existe sessão, sala ou processo por jogo.</li>
+          <li><strong>O relógio é preguiçoso.</strong> Não há timer, cron nem worker: o tempo
+            restante é recalculado a partir de <code>Date.now()</code> toda vez que a partida é lida.</li>
+          <li><strong>SSE serve só para notificar</strong>, nunca como fonte da verdade. O evento
+            carrega o estado novo, mas o cliente sempre pode reconstruir tudo com um <code>GET</code>.</li>
+        </ol>
+
+        <h3>Stack</h3>
+
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Camada</th><th>Tecnologia</th></tr></thead>
+            <tbody>
+              <tr><td>Runtime</td><td>Node.js</td></tr>
+              <tr><td>Framework</td><td>NestJS 9</td></tr>
+              <tr><td>Linguagem</td><td>TypeScript 4.9 — <code>strict</code> desligado</td></tr>
+              <tr><td>Banco</td><td>MongoDB via Mongoose 6</td></tr>
+              <tr><td>Autenticação</td><td>Passport (<code>local</code> + <code>jwt</code>), JWT em cookie httpOnly</td></tr>
+              <tr><td>Hash de senha</td><td>bcrypt, 10 salt rounds</td></tr>
+              <tr><td>Motor de xadrez</td><td><code>github:Utzig26/chess.js#dev</code> — fork próprio</td></tr>
+              <tr><td>Tempo real</td><td><code>@Sse</code> do Nest + <code>EventEmitter</code> + RxJS <code>fromEvent</code></td></tr>
+              <tr><td>IDs legíveis</td><td><code>unique-names-generator</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="note warn">
+          <span class="note-label">O ponto mais crítico da arquitetura antiga</span>
+          <p>
+            O fork do chess.js não é preferência — é consequência. O schema persiste o objeto
+            <code>Chess</code> inteiro no Mongo (<code>@Prop({ type: Chess })</code>) e o reidrata com
+            <code>new Chess(game.board)</code>, passando um <strong>objeto</strong> em vez de uma
+            string FEN. O chess.js oficial não aceita isso. Ver §11.
+          </p>
+        </div>
+      </section>
+
+      <!-- ============ 2 ============ -->
+      <section id="s2">
+        <h2><span class="n">02</span><span>Árvore de módulos</span></h2>
+
+        <div class="figure">
+          <pre class="mermaid">
+graph TD
+  App["AppModule"]
+
+  App --&gt; Config["ConfigModule.forRoot()"]
+  App --&gt; Mongo["MongooseModule.forRoot()"]
+  App --&gt; Auth["AuthModule"]
+  App --&gt; Users["UsersModule"]
+  App --&gt; Games["GamesModule"]
+  App --&gt; SSE["SSEModule"]
+
+  Auth --&gt; AuthC["AuthController &#183; /auth"]
+  Auth --&gt; AuthS["AuthService"]
+  Auth --&gt; Local["LocalStrategy + LocalAuthGuard"]
+  Auth --&gt; Jwt["JwtStrategy + JwtAuthGuard"]
+  Auth --&gt; JwtMod["JwtModule &#183; expiresIn 7d"]
+
+  Users --&gt; UsersC["UsersController &#183; /users"]
+  Users --&gt; UsersS["UsersService"]
+  Users --&gt; UserDB[("coleção Users")]
+
+  Games --&gt; GamesC["GamesController &#183; /games"]
+  Games --&gt; GamesS["GamesService"]
+  Games --&gt; GameDB[("coleção Games")]
+
+  SSE --&gt; SSES["SSEService &#183; EventEmitter"]
+
+  GamesC -.-&gt;|emit| SSES
+  GamesC -.-&gt;|subscribe| SSES
+  AuthS --&gt; UserDB
+  AuthC --&gt; UsersS
+          </pre>
+          <div class="figcap">
+            <b>Seis módulos.</b> As linhas tracejadas são as duas únicas chamadas ao
+            <code>SSEService</code> em toda a base — ambas partindo do <code>GamesController</code>.
+            <code>JwtStrategy</code> e <code>JwtAuthGuard</code> pertencem ao <code>AuthModule</code>
+            mas ficam em <code>src/common/</code>.
+          </div>
+        </div>
+
+        <h3>Duplicação de providers</h3>
+
+        <p>
+          Dois serviços são declarados no <code>providers</code> de módulos que
+          <strong>também</strong> importam o módulo dono deles. No Nest o provider local vence —
+          então existem instâncias duplicadas:
+        </p>
+
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Serviço</th><th>Dono</th><th>Redeclarado em</th><th>Consequência</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><code>UsersService</code></td>
+                <td><code>UsersModule</code></td>
+                <td><code>AuthModule</code>, <code>GamesModule</code></td>
+                <td>Três instâncias. Inofensivo hoje porque é stateless — mas errado.</td>
+              </tr>
+              <tr>
+                <td><code>SSEService</code></td>
+                <td><code>SSEModule</code></td>
+                <td><code>GamesModule</code></td>
+                <td>
+                  Dois <code>EventEmitter</code> distintos. <strong>Funciona por acidente:</strong>
+                  <code>subscribe</code> e <code>emit</code> são chamados no mesmo controller, que
+                  resolve para a instância local. Um segundo módulo emitindo pelo
+                  <code>SSEModule</code> falaria sozinho.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          A correção é remover das listas de <code>providers</code> e depender só do
+          <code>exports</code> dos módulos importados.
+        </p>
+      </section>
+
+      <!-- ============ 3 ============ -->
+      <section id="s3">
+        <h2><span class="n">03</span><span>Estrutura de arquivos</span></h2>
+
+<pre class="tree"><code>src/
+├── main.ts                          bootstrap: CORS + cookie-parser, porta 3000
+├── app.module.ts                    raiz: Config, Mongoose, Auth, Users, Games, SSE
+├── app.controller.ts                vazio
+├── app.service.ts                   vazio
+│
+├── auth/
+│   ├── auth.module.ts
+│   ├── auth.controller.ts           POST /auth/{signup,signin,signout}
+│   ├── auth.service.ts              signUp, signIn, validateUser
+│   ├── guards/
+│   │   └── local-auth-guard.ts      AuthGuard('local')
+│   └── strategies/
+│       └── local.strategy.ts        valida username + senha
+│
+├── common/
+│   ├── guards/
+│   │   └── jwt-auth.guard.ts        AuthGuard('jwt')
+│   └── strategies/
+│       └── jwt.strategy.ts          extrai o JWT do cookie, cai para Bearer
+│
+├── users/
+│   ├── users.module.ts
+│   ├── users.controller.ts          GET /users/me
+│   ├── users.service.ts             findById, extractUserData
+│   ├── dto/users.dto.ts             regras de username e senha
+│   ├── interfaces/users.interface.ts
+│   └── schemas/users.schema.ts      username único + hash da senha
+│
+├── games/                           ~800 linhas — o núcleo
+│   ├── games.module.ts
+│   ├── games.controller.ts          9 rotas, 192 linhas
+│   ├── games.service.ts             339 linhas: regras + relógio + estado
+│   ├── dto/games.dto.ts             newGameDTO, moveDTO, timeControl
+│   ├── interfaces/games.interface.ts
+│   └── schemas/games.schema.ts      7 classes, 184 linhas
+│
+└── sse/
+    ├── sse.module.ts
+    └── sse.service.ts               19 linhas: EventEmitter + fromEvent</code></pre>
+
+        <div class="note warn">
+          <span class="note-label">Cobertura de testes: zero</span>
+          <p>
+            Existem três <code>.spec.ts</code> de scaffold com apenas
+            <code>expect(service).toBeDefined()</code> — e que nem passariam, porque instanciam os
+            services sem mockar as dependências injetadas (<code>@InjectModel</code>,
+            <code>JwtService</code>). O <code>app.e2e-spec.ts</code> só confere que
+            <code>GET /</code> devolve 404.
+          </p>
+        </div>
+      </section>
+
+      <!-- ============ 4 ============ -->
+      <section id="s4">
+        <h2><span class="n">04</span><span>Features</span></h2>
+
+        <div class="figure">
+          <pre class="mermaid">
+graph LR
+  root["Chess API"]
+
+  root --&gt; A["Autenticação"]
+  A --&gt; A1["Cadastro com username único"]
+  A --&gt; A2["Login por username + senha"]
+  A --&gt; A3["JWT válido por 7 dias"]
+  A --&gt; A4["Cookie httpOnly com fallback Bearer"]
+  A --&gt; A5["Logout limpa o cookie"]
+
+  root --&gt; B["Partidas"]
+  B --&gt; B1["Criar escolhendo a cor, ou sorteio"]
+  B --&gt; B2["ID legível gerado"]
+  B --&gt; B3["Entrar na vaga aberta"]
+  B --&gt; B4["Listar partidas ativas"]
+  B --&gt; B5["Consultar uma partida"]
+
+  root --&gt; C["Jogo"]
+  C --&gt; C1["Lance em notação SAN"]
+  C --&gt; C2["Listar lances legais"]
+  C --&gt; C3["Validação de vez e de jogador"]
+  C --&gt; C4["Histórico com timestamp"]
+
+  root --&gt; D["Fim de partida"]
+  D --&gt; D1["Xeque-mate"]
+  D --&gt; D2["Desistência"]
+  D --&gt; D3["Empate por acordo mútuo"]
+  D --&gt; D4["Afogamento"]
+  D --&gt; D5["Material insuficiente"]
+  D --&gt; D6["Repetição tripla"]
+  D --&gt; D7["Regra dos 50 lances"]
+  D --&gt; D8["Tempo esgotado"]
+
+  root --&gt; E["Relógio"]
+  E --&gt; E1["Incremento Fischer de 0 a 10s"]
+  E --&gt; E2["De 10s a 90min por jogador"]
+  E --&gt; E3["Cálculo preguiçoso, sem timer"]
+  E --&gt; E4["Timeout detectado na leitura"]
+
+  root --&gt; F["Tempo real"]
+  F --&gt; F1["Stream SSE por partida"]
+  F --&gt; F2["Aberto a espectadores"]
+  F --&gt; F3["Cinco tipos de evento"]
+  F --&gt; F4["Payload traz a partida inteira"]
+          </pre>
+          <div class="figcap">
+            <b>Seis famílias de funcionalidade.</b> Oito das nove condições de fim de partida do
+            xadrez estão implementadas — falta apenas o abandono por desconexão, que nunca existiu.
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 5 ============ -->
+      <section id="s5">
+        <h2><span class="n">05</span><span>Endpoints</span></h2>
+
+        <p class="loc" style="font-family: var(--sans); font-size: .82rem; color: var(--muted);">
+          Legenda: <strong>○</strong> público · <strong>●</strong> exige JWT
+        </p>
+
+        <h3>/auth</h3>
+
+        <div class="scroll">
+          <table>
+            <thead><tr><th class="lock"></th><th>Rota</th><th>Corpo</th><th>Resposta</th></tr></thead>
+            <tbody>
+              <tr>
+                <td class="lock">○</td>
+                <td><code>POST /auth/signup</code></td>
+                <td><code>{ username, password }</code></td>
+                <td><code>{ user, accessToken }</code> + cookie <code>jwt</code></td>
+              </tr>
+              <tr>
+                <td class="lock">○</td>
+                <td><code>POST /auth/signin</code></td>
+                <td><code>{ username, password }</code></td>
+                <td><code>{ accessToken }</code> + cookie <code>jwt</code></td>
+              </tr>
+              <tr>
+                <td class="lock">●</td>
+                <td><code>POST /auth/signout</code></td>
+                <td>—</td>
+                <td><code>{ message: "success" }</code>, limpa o cookie</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4>Validação de cadastro</h4>
+
+        <ul>
+          <li><code>username</code> — 2 a 32 caracteres, alfanumérico mais <code>_</code> e
+            <code>.</code>; não pode começar nem terminar com <code>_</code>/<code>.</code>, nem ter
+            dois seguidos.</li>
+          <li><code>password</code> — 8 a 128 caracteres, sem exigência de composição.</li>
+        </ul>
+
+<pre><code>/^(?![_.])(?!.*[_.]{2})[a-zA-Z0-9._]+(?&lt;![_.])$/</code></pre>
+
+        <p>Username duplicado: o erro <code>11000</code> do Mongo vira <code>409 Conflict</code>.</p>
+
+        <h3>/users</h3>
+
+        <div class="scroll">
+          <table>
+            <thead><tr><th class="lock"></th><th>Rota</th><th>Resposta</th></tr></thead>
+            <tbody>
+              <tr><td class="lock">●</td><td><code>GET /users/me</code></td><td><code>{ id, username }</code></td></tr>
+              <tr><td class="lock">●</td><td><code>GET /users</code></td><td>idêntico — alias no mesmo handler</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          O alias existe porque <code>/users</code> ainda não lista usuários; a intenção
+          registrada em comentário era manter só <code>/users/me</code> no contrato público.
+        </p>
+
+        <h3>/games</h3>
+
+        <div class="scroll">
+          <table>
+            <thead><tr><th class="lock"></th><th>Rota</th><th>Pré-condição</th><th>Efeito</th></tr></thead>
+            <tbody>
+              <tr><td class="lock">○</td><td><code>GET /games/:id/sse</code></td><td>—</td><td>Abre o stream SSE da partida</td></tr>
+              <tr><td class="lock">○</td><td><code>GET /games</code></td><td>—</td><td>Lista partidas com <code>gameState == "A"</code></td></tr>
+              <tr><td class="lock">○</td><td><code>GET /games/:id</code></td><td>—</td><td>Devolve a partida, ou 404</td></tr>
+              <tr><td class="lock">○</td><td><code>GET /games/:id/moves</code></td><td>estado <code>W</code> ou <code>A</code></td><td><code>{ game, moves }</code> — lances legais</td></tr>
+              <tr><td class="lock">●</td><td><code>POST /games</code></td><td>—</td><td>Cria a partida</td></tr>
+              <tr><td class="lock">●</td><td><code>POST /games/:id/join</code></td><td>estado <code>WP</code></td><td>Ocupa a vaga livre, vai para <code>W</code></td></tr>
+              <tr><td class="lock">●</td><td><code>POST /games/:id/move</code></td><td>é jogador · é sua vez · estado <code>W</code>/<code>A</code></td><td>Aplica o lance</td></tr>
+              <tr><td class="lock">●</td><td><code>POST /games/:id/resign</code></td><td>é jogador · estado <code>W</code>/<code>A</code></td><td>Desiste</td></tr>
+              <tr><td class="lock">●</td><td><code>POST /games/:id/draw</code></td><td>é jogador · estado <code>W</code>/<code>A</code></td><td>Oferece ou aceita empate</td></tr>
+              <tr><td class="lock">●</td><td><code>DELETE /games/:id/draw</code></td><td>é jogador · estado <code>W</code>/<code>A</code></td><td>Retira a própria oferta</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4>Corpo de POST /games</h4>
+
+<pre><code>{
+  "pieces": "w",
+  "timeControl": { "white": 600, "black": 600, "increment": 5 }
+}</code></pre>
+
+        <ul>
+          <li><code>pieces</code> — <code>"w"</code> ou <code>"b"</code>, opcional. Omitido, a cor é
+            <strong>sorteada</strong>.</li>
+          <li><code>white</code> / <code>black</code> — 10 a 5400 segundos.</li>
+          <li><code>increment</code> — 0 a 10 segundos.</li>
+        </ul>
+
+        <h4>Corpo de POST /games/:id/move</h4>
+
+<pre><code>{ "move": "Nf3" }</code></pre>
+
+        <p>Validado por regex SAN antes de chegar ao motor — cobre lances de peça e peão,
+          capturas, promoção, <em>en passant</em> e roque:</p>
+
+<pre><code>/^([PNBRQK]?[a-h]?[1-8]?[xX-]?[a-h][1-8](=[NBRQ]| ?e\.p\.)?|^O-O(?:-O)?)[+#$]?$/</code></pre>
+
+        <div class="note">
+          <span class="note-label">Não existe endpoint de aceitar empate</span>
+          <p>
+            O empate é modelado como <strong>dois booleanos</strong> —
+            <code>drawOffer.white</code> e <code>drawOffer.black</code>. Aceitar é simplesmente
+            chamar <code>POST /:id/draw</code> também; quando os dois ficam <code>true</code>, a
+            partida encerra empatada. O <code>DELETE</code> zera apenas a sua própria flag.
+            É uma simplificação elegante que vale preservar.
+          </p>
+        </div>
+      </section>
+
+      <!-- ============ 6 ============ -->
+      <section id="s6">
+        <h2><span class="n">06</span><span>Modelo de dados</span></h2>
+
+        <h3>Coleção Users</h3>
+
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Campo</th><th>Tipo</th><th>Notas</th></tr></thead>
+            <tbody>
+              <tr><td><code>username</code></td><td><code>String</code></td><td>único, obrigatório</td></tr>
+              <tr><td><code>password</code></td><td><code>String</code></td><td>hash bcrypt, 10 rounds</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Coleção Games</h3>
+
+        <div class="figure">
+          <pre class="mermaid">
+classDiagram
+  class Game {
+    +String resourceId
+    +Player whitePlayer
+    +Player blackPlayer
+    +TimeControl timeControl
+    +String turn
+    +String FEN
+    +Status status
+    +DrawOffer drawOffer
+    +ResignRequest resignRequest
+    +moveData history
+    -Number moveNumber
+    -Chess board
+    -Date createdAt
+    -Date updatedAt
+  }
+  class Player {
+    +String username
+    +ObjectId id
+  }
+  class TimeControl {
+    +Number increment
+    +Number white
+    +Number black
+    +Number turnTime
+  }
+  class Status {
+    +String gameState
+    +String result
+    +String aditionalInfo
+    +Number finishedAt
+  }
+  class DrawOffer {
+    +Boolean white
+    +Boolean black
+  }
+  class ResignRequest {
+    +String player
+    +Number timestamp
+  }
+  class moveData {
+    +Number moveNumber
+    +Mixed move
+    +Number timestamp
+  }
+
+  Game --&gt; Player : white / black
+  Game --&gt; TimeControl
+  Game --&gt; Status
+  Game --&gt; DrawOffer
+  Game --&gt; ResignRequest
+  Game --&gt; moveData : history
+          </pre>
+          <div class="figcap">
+            <b>Os campos marcados com <code>-</code> levam <code>@Exclude()</code></b> e nunca saem
+            na resposta — é assim que o objeto <code>Chess</code> inteiro e o <code>_id</code> do
+            Mongo ficam invisíveis para o cliente.
+          </div>
+        </div>
+
+        <p>Defaults que importam:</p>
+
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Campo</th><th>Default</th></tr></thead>
+            <tbody>
+              <tr><td><code>turn</code></td><td><code>"w"</code></td></tr>
+              <tr><td><code>moveNumber</code></td><td><code>1</code></td></tr>
+              <tr><td><code>status.gameState</code></td><td><code>"WP"</code></td></tr>
+              <tr><td><code>status.aditionalInfo</code></td><td><code>"Wating for the players connect"</code></td></tr>
+              <tr><td><code>drawOffer.white</code> / <code>.black</code></td><td><code>false</code></td></tr>
+              <tr><td><code>history</code></td><td><code>[]</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4>A serialização esconde os IDs dos jogadores</h4>
+
+<pre><code>@Transform(({ value }) =&gt; value ? value.username : undefined)</code></pre>
+
+        <p>
+          A API devolve <code>"whitePlayer": "Magnus.Carlsen"</code>, nunca o <code>id</code>. O
+          cliente não tem como descobrir por ID qual lado é o seu — precisa comparar pelo username
+          vindo de <code>/users/me</code>. Decisão deliberada e boa, mas que amarra o contrato ao
+          username.
+        </p>
+
+        <h4>Geração do resourceId</h4>
+
+        <p>
+          <code>unique-names-generator</code> monta
+          <code>adjetivo-cor-substantivo-casa</code>, onde o substantivo sai aleatoriamente de uma
+          lista de peças de xadrez <strong>ou</strong> de animais, e a casa é uma coordenada de
+          tabuleiro:
+        </p>
+
+<pre><code>brave-crimson-knight-e4
+tidy-olive-panda-h7</code></pre>
+
+        <p>A criação faz um <code>do … while</code> consultando o banco até achar um ID livre.</p>
+      </section>
+
+      <!-- ============ 7 ============ -->
+      <section id="s7">
+        <h2><span class="n">07</span><span>Máquina de estados</span></h2>
+
+        <p><code>status.gameState</code> assume quatro valores:</p>
+
+        <div class="figure">
+          <pre class="mermaid">
+stateDiagram-v2
+  [*] --&gt; WP: POST /games
+
+  WP: WP — esperando jogadores
+  W: W — esperando o primeiro lance
+  A: A — em andamento
+  F: F — encerrada
+
+  WP --&gt; W: POST /:id/join
+  W --&gt; A: primeiro lance
+  A --&gt; A: lance seguinte
+
+  W --&gt; F: desistência, empate ou tempo
+  A --&gt; F: xeque-mate
+  A --&gt; F: desistência
+  A --&gt; F: empate por acordo
+  A --&gt; F: afogamento
+  A --&gt; F: material insuficiente
+  A --&gt; F: repetição tripla
+  A --&gt; F: regra dos 50 lances
+  A --&gt; F: tempo esgotado
+
+  F --&gt; [*]
+          </pre>
+          <div class="figcap">
+            <b>Só quatro estados</b>, mas nove transições distintas para <code>F</code>. Cada uma
+            preenche <code>status.aditionalInfo</code> com uma frase legível e grava
+            <code>status.result</code> e <code>status.finishedAt</code>.
+          </div>
+        </div>
+
+        <div class="note">
+          <span class="note-label">Detalhe que vale entender</span>
+          <p>
+            <code>updateStatus()</code> <strong>sempre reconsulta o tabuleiro antes de olhar o motivo
+            pedido</strong>. Se a posição já é xeque-mate, o tipo solicitado é sobrescrito:
+          </p>
+<pre><code>const board = new Chess(game.board)
+if (board.isCheckmate())                 type = 'checkMate';
+else if (board.isInsufficientMaterial()) type = 'insufficientMaterial';
+else if (board.isStalemate())            type = 'stalemate';
+else if (board.isThreefoldRepetition())  type = 'threefoldRepetition';
+else if (board.isDraw())                 type = '50-moveRule';
+switch (type) { … }</code></pre>
+          <p>
+            É elegante para detecção automática de fim de jogo — mas significa que uma desistência
+            numa posição já empatada por material insuficiente é registrada como empate, não como
+            desistência.
+          </p>
+        </div>
+      </section>
+
+      <!-- ============ 8 ============ -->
+      <section id="s8">
+        <h2><span class="n">08</span><span>Relógio e SSE</span></h2>
+
+        <p>Os dois mecanismos que mais valem a pena preservar na reescrita.</p>
+
+        <h3>8.1 · Relógio preguiçoso</h3>
+
+        <p>Não existe timer, <code>setInterval</code>, worker ou job. O tempo é derivado.</p>
+
+        <div class="figure">
+          <pre class="mermaid">
+sequenceDiagram
+  participant C as Cliente
+  participant Ctl as GamesController
+  participant S as GamesService
+  participant DB as MongoDB
+
+  C-&gt;&gt;Ctl: GET /games/:id
+  Ctl-&gt;&gt;S: findOne(id)
+  S-&gt;&gt;DB: findOne resourceId
+  DB--&gt;&gt;S: documento
+  S-&gt;&gt;S: clock(game, Date.now())
+  Note over S: turnTime menos o tempo&lt;br/&gt;desde o último lance
+  alt tempo esgotado
+    S-&gt;&gt;S: updateStatus('timedOut')&lt;br/&gt;zera o relógio de quem tem a vez
+  else ainda há tempo
+    S-&gt;&gt;S: grava o tempo restante
+  end
+  S-&gt;&gt;DB: game.save()
+  S--&gt;&gt;Ctl: partida atualizada
+  Ctl--&gt;&gt;C: 200 + JSON
+          </pre>
+          <div class="figcap">
+            <b>Toda leitura é também uma escrita.</b> O <code>save()</code> dentro de
+            <code>clock()</code> é o preço do relógio sem timer — e a dívida descrita em §10.6.
+          </div>
+        </div>
+
+        <p>
+          <code>timeControl.turnTime</code> é o <strong>snapshot do relógio de quem tem a
+          vez</strong>, tirado no instante do último lance. <code>clock()</code> subtrai daí o tempo
+          decorrido; se o resultado for zero ou menos, quem estava na vez perde por tempo. E isso é
+          descoberto na próxima leitura, seja de quem for.
+        </p>
+
+        <p>
+          O incremento Fischer é aplicado em <code>updateTimeControl()</code>, chamado dentro de
+          <code>move()</code> <strong>antes</strong> de <code>game.turn</code> ser trocado — ou seja,
+          <code>game.turn</code> ainda aponta para quem acabou de jogar:
+        </p>
+
+<pre><code>const timeSpent = increment - ((moves[1].timestamp - moves[0].timestamp) / 1000);
+game.timeControl.white   = game.timeControl.turnTime + timeSpent;  // brancas jogaram
+game.timeControl.turnTime = game.timeControl.black;                // agora é a vez das pretas</code></pre>
+
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Vantagem</th><th>Custo</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>Stateless de verdade: escala horizontal sem coordenação e sobrevive a restart do processo.</td>
+                <td>Um <code>GET</code> escreve no banco, e ninguém é notificado do timeout até alguém consultar.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>8.2 · Server-Sent Events</h3>
+
+        <p>O <code>SSEService</code> inteiro cabe em 19 linhas:</p>
+
+<pre><code>@Injectable()
+export class SSEService {
+  readonly emitter: EventEmitter;
+  constructor() { this.emitter = new EventEmitter(); }
+
+  subscribe(id: string) { return fromEvent(this.emitter, id); }
+
+  async emit(id: string, data: Object) { return this.emitter.emit(id, { data }); }
+}</code></pre>
+
+        <p>
+          O <code>resourceId</code> da partida é o nome do evento no <code>EventEmitter</code>. O
+          <code>@Sse()</code> do Nest consome o <code>Observable</code> devolvido por
+          <code>fromEvent</code> e serializa cada emissão como um evento SSE.
+        </p>
+
+        <div class="figure">
+          <pre class="mermaid">
+sequenceDiagram
+  participant W as Espectador
+  participant B as Jogador das pretas
+  participant Ctl as GamesController
+  participant SSE as SSEService
+  participant DB as MongoDB
+
+  W-&gt;&gt;Ctl: GET /games/:id/sse
+  Ctl-&gt;&gt;SSE: subscribe(resourceId)
+  SSE--&gt;&gt;W: stream aberto (text/event-stream)
+
+  B-&gt;&gt;Ctl: POST /games/:id/move Nf3
+  Ctl-&gt;&gt;Ctl: verifyPlayer, verifyTurnPlayer, getGameStatus
+  Ctl-&gt;&gt;DB: aplica o lance e salva
+  Ctl-&gt;&gt;SSE: emit(resourceId, type move)
+  SSE--&gt;&gt;W: data com a partida atualizada
+  Ctl--&gt;&gt;B: 200 + partida
+          </pre>
+          <div class="figcap">
+            <b>O espectador nunca autentica.</b> O <code>@Sse</code> é a única rota de escrita
+            adjacente sem guard — provavelmente intencional, mas nunca documentado.
+          </div>
+        </div>
+
+        <h4>Eventos emitidos</h4>
+
+        <p>Sempre no formato <code>{ type, game }</code>, com <code>game</code> já serializado:</p>
+
+        <div class="scroll">
+          <table>
+            <thead><tr><th>type</th><th>Disparado por</th></tr></thead>
+            <tbody>
+              <tr><td><code>join</code></td><td><code>POST /:id/join</code></td></tr>
+              <tr><td><code>move</code></td><td><code>POST /:id/move</code></td></tr>
+              <tr><td><code>resign</code></td><td><code>POST /:id/resign</code></td></tr>
+              <tr><td><code>drawOffer</code></td><td><code>POST /:id/draw</code></td></tr>
+              <tr><td><code>drawCancel</code></td><td><code>DELETE /:id/draw</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4>Limites</h4>
+
+        <ul>
+          <li><strong>Sem autenticação</strong> no <code>@Sse</code> — qualquer um assiste qualquer
+            partida. Provavelmente intencional para espectadores, mas vale decidir conscientemente.</li>
+          <li><strong>Em memória, por processo.</strong> Com mais de uma instância da API, um cliente
+            conectado à instância A não recebe o lance processado pela instância B. Escalar
+            horizontalmente exige Redis Pub/Sub ou equivalente.</li>
+          <li><strong>Sem replay, heartbeat ou <code>Last-Event-ID</code>.</strong> Reconexão perde o
+            que passou; a recuperação é refazer o <code>GET /games/:id</code>.</li>
+          <li><strong>O relógio não gera evento.</strong> O fim por tempo só aparece quando alguém lê
+            a partida — o espectador pode ficar olhando uma partida já encerrada.</li>
+        </ul>
+      </section>
+
+      <!-- ============ 9 ============ -->
+      <section id="s9">
+        <h2><span class="n">09</span><span>Autenticação</span></h2>
+
+        <div class="figure">
+          <pre class="mermaid">
+sequenceDiagram
+  participant C as Cliente
+  participant Ctl as AuthController
+  participant S as AuthService
+  participant DB as MongoDB
+
+  Note over C,DB: Cadastro
+  C-&gt;&gt;Ctl: POST /auth/signup
+  Ctl-&gt;&gt;Ctl: ValidationPipe com UsersDTO
+  Ctl-&gt;&gt;S: signUp(dto)
+  S-&gt;&gt;S: bcrypt.hash(password, 10)
+  S-&gt;&gt;DB: save()
+  alt erro 11000 duplicado
+    DB--&gt;&gt;C: 409 Conflict
+  end
+  S-&gt;&gt;S: signIn(user) gera JWT de 7 dias
+  Ctl--&gt;&gt;C: Set-Cookie jwt httpOnly + accessToken
+
+  Note over C,DB: Requisição protegida
+  C-&gt;&gt;Ctl: POST /games com cookie ou Bearer
+  Ctl-&gt;&gt;Ctl: JwtAuthGuard chama JwtStrategy
+  Note over Ctl: tenta cookies jwt&lt;br/&gt;e cai para Authorization Bearer
+  Ctl-&gt;&gt;Ctl: validate(payload) devolve user aninhado
+          </pre>
+          <div class="figcap">
+            <b>Cookie primeiro, header depois.</b> Aceitar as duas formas foi o que permitiu o
+            mesmo backend servir navegador e cliente de linha de comando.
+          </div>
+        </div>
+
+<pre><code>jwtFromRequest: ExtractJwt.fromExtractors([(request: Request) =&gt; {
+  const data = request?.cookies["jwt"];
+  if (!data) {
+    try { return request?.headers.authorization.replace('Bearer ',''); }
+    catch { return null; }
+  }
+  return data;
+}])</code></pre>
+
+        <p>
+          O <code>validate()</code> devolve <code>{ user: payload }</code> — e é por isso que todos
+          os controllers escrevem <code>req.user['user']</code>, um aninhamento estranho que se
+          propagou por toda a base.
+        </p>
+
+        <p>
+          O payload do JWT tem só <code>{ id, username }</code>.
+          <strong><code>signout</code> apenas limpa o cookie</strong>: o token continua válido pelos
+          sete dias, e quem tiver guardado o <code>accessToken</code> segue autenticado. Não há
+          blacklist nem refresh token.
+        </p>
+
+        <h3>Variáveis de ambiente</h3>
+
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Variável</th><th>Uso</th></tr></thead>
+            <tbody>
+              <tr><td><code>MONGO_URI</code></td><td>conexão do Mongoose</td></tr>
+              <tr><td><code>JWT_SECRET</code></td><td>assinatura e verificação do JWT</td></tr>
+              <tr><td><code>CORS_ORIGIN</code></td><td>origem única permitida, <code>credentials: true</code>, métodos <code>POST</code> e <code>GET</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          Lidas via <code>process.env</code> direto, sem schema de validação — se faltarem, a
+          aplicação sobe e quebra em runtime.
+        </p>
+      </section>
+
+      <!-- ============ 10 ============ -->
+      <section id="s10">
+        <h2><span class="n">10</span><span>Bugs e dívidas</span></h2>
+
+        <p>
+          Levantamento feito na leitura do código, ordenado por gravidade. Serve de checklist do que
+          <strong>não</strong> repetir na reescrita.
+        </p>
+
+        <div class="sev-head" style="--dot: var(--sev-bug);">
+          Bugs reais <span class="count">5 itens</span>
+        </div>
+
+        <div class="finding" style="--dot: var(--sev-bug);">
+          <div class="fnum">01</div>
+          <div class="fbody">
+            <div class="ftitle">A verificação de partida inexistente no SSE nunca dispara</div>
+            <div class="loc">games.controller.ts:35 — falta o <code>await</code></div>
+<pre><code>const game = this.gamesService.findOne(id)   // Promise, sempre truthy
+if (!game) throw new HttpException('Game not found.', HttpStatus.NOT_FOUND);</code></pre>
+            <p>
+              <code>GET /games/id-inexistente/sse</code> abre um stream que nunca emite nada, em vez
+              de devolver 404. É a única chamada a <code>findOne</code> sem <code>await</code> no
+              arquivo.
+            </p>
+          </div>
+        </div>
+
+        <div class="finding" style="--dot: var(--sev-bug);">
+          <div class="fnum">02</div>
+          <div class="fbody">
+            <div class="ftitle">O criador pode jogar sozinho contra si mesmo</div>
+            <p>
+              <code>getGameStatus(game, 'join')</code> só confere se o estado é <code>WP</code>.
+              Ninguém verifica se quem está entrando é o próprio criador — então ele ocupa as duas
+              cores. A função <code>wichPlayer()</code> inclusive trata esse caso devolvendo
+              <code>'wb'</code>, e <code>drawRequest</code> sabe empatar consigo mesmo. Pode ter sido
+              intencional como modo treino, mas não está documentado em lugar nenhum.
+            </p>
+          </div>
+        </div>
+
+        <div class="finding" style="--dot: var(--sev-bug);">
+          <div class="fnum">03</div>
+          <div class="fbody">
+            <div class="ftitle">O primeiro lance das brancas é grátis</div>
+            <p>
+              Em <code>updateTimeControl</code>, quando o histórico tem só um lance a função apenas
+              define <code>turnTime = timeControl.black</code> e retorna, sem debitar o tempo que as
+              brancas levaram para jogar.
+            </p>
+          </div>
+        </div>
+
+        <div class="finding" style="--dot: var(--sev-bug);">
+          <div class="fnum">04</div>
+          <div class="fbody">
+            <div class="ftitle">FEN inicial incompleto</div>
+            <div class="loc">games.schema.ts:5</div>
+<pre><code>'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR'
+                          falta: ' w KQkq - 0 1'</code></pre>
+            <p>
+              É só o valor default do campo <code>FEN</code> — o tabuleiro real vem do objeto
+              <code>Chess</code> — mas qualquer cliente que confie nesse FEN antes do primeiro lance
+              recebe uma string inválida.
+            </p>
+          </div>
+        </div>
+
+        <div class="finding" style="--dot: var(--sev-bug);">
+          <div class="fnum">05</div>
+          <div class="fbody">
+            <div class="ftitle">Mensagem de validação trocada</div>
+            <div class="loc">users.dto.ts:11</div>
+            <p>
+              <code>@MaxLength(32, { message: 'Username must be at least 32 characters long' })</code>
+              — deveria ser <em>at most</em>.
+            </p>
+          </div>
+        </div>
+
+        <div class="sev-head" style="--dot: var(--sev-arch);">
+          Arquitetura <span class="count">7 itens</span>
+        </div>
+
+        <div class="finding" style="--dot: var(--sev-arch);">
+          <div class="fnum">06</div>
+          <div class="fbody">
+            <div class="ftitle">GET escreve no banco</div>
+            <p>
+              <code>findOne()</code> chama <code>clock()</code>, que chama <code>game.save()</code>.
+              Toda leitura de partida é uma escrita. Além de violar a semântica de <code>GET</code>,
+              multiplica a carga no Mongo e cria corrida quando vários clientes consultam ao mesmo
+              tempo.
+            </p>
+          </div>
+        </div>
+
+        <div class="finding" style="--dot: var(--sev-arch);">
+          <div class="fnum">07</div>
+          <div class="fbody">
+            <div class="ftitle">SSE não sobrevive a mais de uma instância</div>
+            <p><code>EventEmitter</code> em memória — ver §8.2. Escala horizontal exige um broker.</p>
+          </div>
+        </div>
+
+        <div class="finding" style="--dot: var(--sev-arch);">
+          <div class="fnum">08</div>
+          <div class="fbody">
+            <div class="ftitle">Instâncias duplicadas de providers</div>
+            <p>Ver §2 — <code>UsersService</code> em triplicata, <code>SSEService</code> em duplicata.</p>
+          </div>
+        </div>
+
+        <div class="finding" style="--dot: var(--sev-arch);">
+          <div class="fnum">09</div>
+          <div class="fbody">
+            <div class="ftitle">Nenhuma proteção contra lances simultâneos</div>
+            <p>
+              <code>findOne</code> → valida → <code>save()</code>, sem transação nem controle de
+              concorrência otimista. Dois <code>POST /move</code> simultâneos podem ler o mesmo
+              estado, e o último sobrescreve o primeiro.
+            </p>
+          </div>
+        </div>
+
+        <div class="finding" style="--dot: var(--sev-arch);">
+          <div class="fnum">10</div>
+          <div class="fbody">
+            <div class="ftitle">Toda a lógica de negócio em funções soltas</div>
+            <p>
+              <code>wichPlayer</code>, <code>updateTimeControl</code>, <code>updateStatus</code>,
+              <code>selectPieces</code> e <code>generateResourceId</code> são funções módulo-privadas
+              no fim de <code>games.service.ts</code>, fora da injeção de dependência e portanto
+              intestáveis isoladamente. <code>updateStatus</code> é um <code>switch</code> de 85
+              linhas.
+            </p>
+          </div>
+        </div>
+
+        <div class="finding" style="--dot: var(--sev-arch);">
+          <div class="fnum">11</div>
+          <div class="fbody">
+            <div class="ftitle">Validação repetida em todo handler</div>
+            <p>
+              O padrão <code>findOne</code> → <code>if (!game) 404</code> →
+              <code>getGameStatus</code> → <code>verifyPlayer</code> se repete em seis dos nove
+              handlers. É exatamente o caso de uso de um guard ou interceptor — que, aliás, é o que a
+              reescrita já introduziu.
+            </p>
+          </div>
+        </div>
+
+        <div class="finding" style="--dot: var(--sev-arch);">
+          <div class="fnum">12</div>
+          <div class="fbody">
+            <div class="ftitle">strictNullChecks e noImplicitAny desligados</div>
+            <p>
+              O <code>tsconfig.json</code> desliga as duas verificações mais úteis do TypeScript.
+              Daí vêm construções como <code>verifyPlayer</code> declarada
+              <code>Promise&lt;boolean&gt;</code> mas com <code>return null</code> no caminho de erro.
+            </p>
+          </div>
+        </div>
+
+        <div class="sev-head" style="--dot: var(--sev-sec);">
+          Segurança <span class="count">4 itens</span>
+        </div>
+
+        <div class="finding" style="--dot: var(--sev-sec);">
+          <div class="fnum">13</div>
+          <div class="fbody">
+            <div class="ftitle">signout não invalida nada</div>
+            <p>O JWT segue válido por sete dias — ver §9.</p>
+          </div>
+        </div>
+
+        <div class="finding" style="--dot: var(--sev-sec);">
+          <div class="fnum">14</div>
+          <div class="fbody">
+            <div class="ftitle">Sem rate limiting</div>
+            <p>Nem em <code>signin</code>, nem em <code>signup</code>.</p>
+          </div>
+        </div>
+
+        <div class="finding" style="--dot: var(--sev-sec);">
+          <div class="fnum">15</div>
+          <div class="fbody">
+            <div class="ftitle">Cookie sem secure nem sameSite</div>
+<pre><code>response.cookie('jwt', token, { httpOnly: true })</code></pre>
+          </div>
+        </div>
+
+        <div class="finding" style="--dot: var(--sev-sec);">
+          <div class="fnum">16</div>
+          <div class="fbody">
+            <div class="ftitle">Sem exigência de composição de senha</div>
+            <p>Oito caracteres quaisquer bastam.</p>
+          </div>
+        </div>
+
+        <div class="sev-head" style="--dot: var(--sev-cosm);">
+          Grafia no contrato público <span class="count">6 itens</span>
+        </div>
+
+        <p>
+          Estes vazaram para o <strong>contrato da API</strong> e precisam de decisão consciente:
+          corrigir quebra clientes existentes.
+        </p>
+
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Onde</th><th>Está escrito</th><th>Correto</th></tr></thead>
+            <tbody>
+              <tr><td><code>status.aditionalInfo</code></td><td><code>aditional</code></td><td><code>additional</code></td></tr>
+              <tr><td>default de <code>aditionalInfo</code></td><td>Wating for the players connect</td><td>Waiting for the players to connect</td></tr>
+              <tr><td><code>aditionalInfo</code> no join</td><td>Wating for the first move.</td><td>Waiting…</td></tr>
+              <tr><td><code>games.service.ts</code></td><td><code>wichPlayer</code></td><td><code>whichPlayer</code></td></tr>
+              <tr><td><code>games.schema.ts</code></td><td><code>initalFEN</code></td><td><code>initialFEN</code></td></tr>
+              <tr><td><code>games.controller.ts:96</code></td><td>This game is no more joinable&nbsp;.</td><td>espaço antes do ponto</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          O <code>README.md</code> nunca foi escrito — era o boilerplate do NestJS do início ao fim.
+        </p>
+      </section>
+
+      <!-- ============ 11 ============ -->
+      <section id="s11">
+        <h2><span class="n">11</span><span>O que levar adiante</span></h2>
+
+        <h3>Vale trazer para a reescrita</h3>
+
+        <ul class="keep">
+          <li><strong>O relógio preguiçoso</strong> (§8.1) — simples, correto e escala.</li>
+          <li><strong>O empate por dois booleanos</strong> (§5) — evita um endpoint de aceitar.</li>
+          <li><strong>A detecção automática de fim de jogo</strong> consultando o motor antes de
+            aplicar o motivo pedido (§7).</li>
+          <li><strong>Os IDs legíveis</strong> (§6) — muito melhores que um ObjectId numa URL
+            compartilhável.</li>
+          <li><strong>O <code>@Transform</code></strong> que esconde IDs de jogador na serialização (§6).</li>
+          <li><strong>O fallback cookie → Bearer</strong> na <code>JwtStrategy</code> (§9).</li>
+        </ul>
+
+        <h3>Exige decisão antes de continuar</h3>
+
+        <ol class="decide">
+          <li>
+            <div>
+              <strong>O fork do chess.js.</strong> Persistir o objeto <code>Chess</code> foi o que
+              forçou o fork. Guardar só o FEN mais o histórico SAN e reidratar com o chess.js oficial
+              elimina a dependência de um fork pessoal não mantido — ao custo de recomputar a posição
+              a cada requisição (barato) e de perder o estado interno de repetição tripla, que
+              precisaria ser derivado do histórico.
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>SSE distribuído ou instância única?</strong> Define se Redis entra na stack.
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Escrita no caminho de leitura.</strong> Manter o relógio preguiçoso sem
+              <code>save()</code> no <code>GET</code> significa calcular na resposta e só persistir
+              quando houver mutação — ou aceitar que o timeout seja detectado tarde.
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Corrigir a grafia do contrato</strong> ou manter compatibilidade com clientes
+              existentes.
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Jogar contra si mesmo:</strong> feature ou bug?
+            </div>
+          </li>
+        </ol>
+
+      </section>
+
+      <!-- ============ PARTE II ============ -->
+
+      <div class="part-divider">
+        <div class="kicker">Parte II · leitura da master em e00c87f</div>
+        <h2>O que a reescrita já mudou</h2>
+        <p>
+          Dezoito meses depois, a base voltou a crescer. Ela ainda não faz nada de xadrez —
+          mas a fundação que está no lugar é melhor que a que foi apagada.
+        </p>
+        <div class="board-rule thin"></div>
+      </div>
+
+      <!-- ============ 12 ============ -->
+      <section id="s12">
+        <h2><span class="n">12</span><span>Onde a master está</span></h2>
+
+        <dl class="scoreboard">
+          <div class="score"><dt>Módulos de domínio</dt><dd>2<small> / 4</small></dd></div>
+          <div class="score"><dt>Endpoints</dt><dd>2<small> / 15</small></dd></div>
+          <div class="score"><dt>Linhas de TS</dt><dd>484<small> / ~1.700</small></dd></div>
+          <div class="score"><dt>Rotas protegidas</dt><dd>0</dd></div>
+          <div class="score"><dt>Testes</dt><dd>0</dd></div>
+          <div class="score"><dt>NestJS</dt><dd>11<small> ← 9</small></dd></div>
+        </dl>
+
+        <p>
+          <code>auth</code> e <code>users</code> foram reconstruídos. <code>games</code> e
+          <code>sse</code> — os dois módulos que continham a razão de existir da API — ainda não
+          foram tocados. O <code>UsersController</code> existe mas está vazio: nem o
+          <code>/users/me</code> voltou.
+        </p>
+
+        <div class="figure">
+          <pre class="mermaid">
+graph TD
+  App["AppModule"]
+
+  App --&gt; Config["ConfigModule &#183; isGlobal"]
+  App --&gt; Mongo["MongooseModule &#183; auth explícita"]
+  App --&gt; Auth["AuthModule"]
+  App --&gt; Users["UsersModule"]
+
+  Auth --&gt; AuthC["AuthController &#183; signup, signin"]
+  Auth --&gt; AuthS["AuthService"]
+  Auth --&gt; JwtS["JwtStrategy &#183; só Bearer"]
+  Auth --&gt; JwtMod["JwtModule &#183; global &#183; expiresIn 60s"]
+
+  Users --&gt; UsersC["UsersController &#183; VAZIO"]
+  Users --&gt; UsersS["UsersService"]
+  Users --&gt; UserDB[("coleção User")]
+
+  Auth ==&gt;|importa e reusa| Users
+
+  Utils["utils/ &#183; camada transversal"]
+  Utils --&gt; F1["GlobalExceptionFilter"]
+  Utils --&gt; F2["MongoExceptionFilter"]
+  Utils --&gt; I1["GlobalResponseInterceptor"]
+  Utils --&gt; D1["@WrapMessage"]
+  Utils --&gt; G1["JwtAuthGuard &#183; NUNCA USADO"]
+
+  Main["main.ts"] --&gt; Utils
+  Main --&gt; App
+
+  Games["GamesModule"]
+  SSE["SSEModule"]
+  App -.-&gt;|não portado| Games
+  App -.-&gt;|não portado| SSE
+          </pre>
+          <div class="figcap">
+            <b>A seta grossa é a correção mais importante da árvore:</b> o <code>AuthModule</code>
+            agora <em>importa</em> o <code>UsersModule</code> e consome o <code>UsersService</code>
+            exportado, em vez de redeclarar o provider. A duplicação de instâncias do §2 acabou.
+          </div>
+        </div>
+
+        <h3>A camada utils — a mudança estrutural real</h3>
+
+        <p>
+          O legado repetia <code>throw new HttpException(...)</code> em cada handler e devolvia um
+          formato diferente por rota. A reescrita move isso para três peças transversais registradas
+          no <code>main.ts</code>:
+        </p>
+
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Peça</th><th>Responsabilidade</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><code>GlobalExceptionFilter</code></td>
+                <td>Captura tudo, normaliza para um envelope de erro e loga <code>método</code>,
+                  <code>path</code>, <code>statusCode</code>, mensagem e stack via <code>Logger</code>.</td>
+              </tr>
+              <tr>
+                <td><code>MongoExceptionFilter</code></td>
+                <td>Traduz <code>MongoError</code> — hoje só o <code>11000</code> de chave duplicada.</td>
+              </tr>
+              <tr>
+                <td><code>GlobalResponseInterceptor</code></td>
+                <td>Embrulha toda resposta de sucesso no mesmo envelope, lendo a mensagem do
+                  <code>@WrapMessage</code> via <code>Reflector</code>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          O <code>@WrapMessage('User created')</code> é o detalhe bem resolvido: o handler continua
+          devolvendo só o dado, e a mensagem vira metadado do endpoint em vez de virar
+          <code>if</code> dentro do controller.
+        </p>
+
+        <h4>O contrato de resposta, antes e depois</h4>
+
+        <div class="ba">
+          <div class="then">
+            <h5>Legado · cada rota inventava a sua</h5>
+<pre><code>// POST /auth/signup
+{
+  "user": { "id": "…", "username": "magnus" },
+  "accessToken": "eyJ…"
+}
+
+// erro — shape padrão do Nest
+{
+  "statusCode": 409,
+  "message": "User already exists",
+  "error": "Conflict"
+}</code></pre>
+          </div>
+          <div class="now">
+            <h5>Master · um envelope para tudo</h5>
+<pre><code>// POST /auth/signup
+{
+  "success": true,
+  "statusCode": 201,
+  "timestamp": "2026-07-25T14:22:31.004Z",
+  "path": "/auth/signup",
+  "message": "User created",
+  "data": { "access_token": "eyJ…" }
+}
+
+// erro — mesmo envelope
+{
+  "success": false,
+  "statusCode": 409,
+  "timestamp": "…",
+  "path": "/auth/signup",
+  "message": "User already exists"
+}</code></pre>
+          </div>
+        </div>
+
+        <h3>Outros ganhos concretos</h3>
+
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Mudança</th><th>Por que importa</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><code>@Prop({ select: false })</code> na senha</td>
+                <td>O hash não sai mais do banco por acidente. O legado carregava o hash em toda
+                  leitura de usuário; agora <code>checkPassword</code> precisa pedir
+                  <code>.select('+password')</code> explicitamente.</td>
+              </tr>
+              <tr>
+                <td><code>lowercase: true</code> no username</td>
+                <td>Fecha o buraco de <code>Magnus</code> e <code>magnus</code> serem contas
+                  diferentes — que o legado tinha.</td>
+              </tr>
+              <tr>
+                <td>DTOs segregados</td>
+                <td><code>UserCreateDto</code>, <code>UserSignDto</code> (derivado via
+                  <code>PickType</code>) e <code>UserDto</code> de saída, no lugar do
+                  <code>UsersDTO</code> único que servia para tudo.</td>
+              </tr>
+              <tr>
+                <td>bcrypt encapsulado</td>
+                <td><code>hashPassword</code> e <code>comparePassword</code> são <code>private</code>
+                  no <code>UsersService</code>. O legado chamava <code>bcrypt</code> direto dentro do
+                  <code>AuthService</code>.</td>
+              </tr>
+              <tr>
+                <td>Mensagens de validação corretas</td>
+                <td>O bug §10.5 morreu: agora é <em>“Username is too long, maximum length is
+                  32 characters”</em>.</td>
+              </tr>
+              <tr>
+                <td><code>HydratedDocument&lt;User&gt;</code></td>
+                <td>Tipagem moderna do Mongoose no lugar de <code>interface Users extends
+                  Document</code> escrita à mão e sempre desatualizada.</td>
+              </tr>
+              <tr>
+                <td>Conexão com credenciais separadas</td>
+                <td><code>DB_URI</code>, <code>DB_NAME</code>, <code>DB_USERNAME</code>,
+                  <code>DB_PASSWORD</code> e <code>authSource</code> em vez de uma
+                  <code>MONGO_URI</code> com a senha embutida.</td>
+              </tr>
+              <tr>
+                <td><code>docker-compose.yml</code></td>
+                <td>Mongo local versionado. Não existia — subir o projeto dependia de conhecimento
+                  não escrito.</td>
+              </tr>
+              <tr>
+                <td>Nest 11 · Mongoose 8 · TS 5</td>
+                <td>Contra Nest 9 · Mongoose 6 · TS 4.9. E, desde hoje, sem nenhuma vulnerabilidade
+                  crítica no lockfile.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ============ 13 ============ -->
+      <section id="s13">
+        <h2><span class="n">13</span><span>Veredito das dívidas</span></h2>
+
+        <p>
+          Cada item do §10 confrontado com o código de hoje.
+          <span class="st st-na">não portado</span> quer dizer que o módulo que continha a dívida
+          ainda não existe — a decisão continua pendente.
+        </p>
+
+        <div class="scroll">
+          <table>
+            <thead><tr><th>#</th><th>Dívida do legado</th><th>Hoje</th><th>Nota</th></tr></thead>
+            <tbody>
+              <tr><td class="num">01</td><td>SSE sem <code>await</code></td><td><span class="st st-na">não portado</span></td><td>—</td></tr>
+              <tr><td class="num">02</td><td>Criador joga sozinho</td><td><span class="st st-na">não portado</span></td><td>Continua sendo decisão de produto</td></tr>
+              <tr><td class="num">03</td><td>Primeiro lance grátis</td><td><span class="st st-na">não portado</span></td><td>—</td></tr>
+              <tr><td class="num">04</td><td>FEN inicial incompleto</td><td><span class="st st-na">não portado</span></td><td>—</td></tr>
+              <tr><td class="num">05</td><td>Mensagem “at least 32”</td><td><span class="st st-ok">resolvido</span></td><td>Reescrita corrigiu todas as mensagens</td></tr>
+              <tr><td class="num">06</td><td><code>GET</code> escreve no banco</td><td><span class="st st-na">não portado</span></td><td>Decisão de §11.3 segue aberta</td></tr>
+              <tr><td class="num">07</td><td>SSE preso a uma instância</td><td><span class="st st-na">não portado</span></td><td>Decisão de §11.2 segue aberta</td></tr>
+              <tr><td class="num">08</td><td>Providers duplicados</td><td><span class="st st-ok">resolvido</span></td><td><code>UsersModule</code> exporta, <code>AuthModule</code> importa</td></tr>
+              <tr><td class="num">09</td><td>Corrida em lances simultâneos</td><td><span class="st st-na">não portado</span></td><td>Mas o padrão racy reapareceu — ver §14.7</td></tr>
+              <tr><td class="num">10</td><td>Lógica em funções soltas</td><td><span class="st st-part">parcial</span></td><td>Métodos <code>private</code> e camada <code>utils</code>; sem domínio ainda para julgar</td></tr>
+              <tr><td class="num">11</td><td>Validação repetida em todo handler</td><td><span class="st st-ok">resolvido</span></td><td>Filters + interceptor global cobrem o padrão inteiro</td></tr>
+              <tr><td class="num">12</td><td><code>strict</code> desligado</td><td><span class="st st-no">pendente</span></td><td><code>strictNullChecks</code> e <code>noImplicitAny</code> seguem <code>false</code></td></tr>
+              <tr><td class="num">13</td><td><code>signout</code> não invalida nada</td><td><span class="st st-part">sumiu</span></td><td>A rota deixou de existir; o problema volta quando ela voltar</td></tr>
+              <tr><td class="num">14</td><td>Sem rate limiting</td><td><span class="st st-no">pendente</span></td><td><code>@nestjs/throttler</code> ainda não entrou</td></tr>
+              <tr><td class="num">15</td><td>Cookie sem <code>secure</code>/<code>sameSite</code></td><td><span class="st st-part">sumiu</span></td><td><code>cookie-parser</code> está comentado como TODO no <code>main.ts</code></td></tr>
+              <tr><td class="num">16</td><td>Grafia no contrato público</td><td><span class="st st-ok">resolvido</span></td><td>Contrato refeito do zero — a janela para acertar é agora</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          <strong>Quatro resolvidas de verdade, três pendentes, três que só sumiram junto com o
+          código.</strong> As nove restantes voltam a valer no dia em que <code>games</code> e
+          <code>sse</code> forem escritos — é por isso que a Parte I deste documento importa.
+        </p>
+      </section>
+
+      <!-- ============ 14 ============ -->
+      <section id="s14">
+        <h2><span class="n">14</span><span>O que quebrou no caminho</span></h2>
+
+        <p>
+          A fundação é melhor, mas o código novo trouxe defeitos próprios. Dois deles são graves e
+          <strong>se mascaram mutuamente</strong> — por isso nenhum apareceu em uso manual.
+        </p>
+
+        <div class="sev-head" style="--dot: var(--sev-bug);">
+          Crítico <span class="count">2 itens · verificados em execução</span>
+        </div>
+
+        <div class="finding" style="--dot: var(--sev-bug);">
+          <div class="fnum">01</div>
+          <div class="fbody">
+            <div class="ftitle">Qualquer senha autentica qualquer usuário</div>
+            <div class="loc">users.service.ts:25 — falta o <code>await</code></div>
+<pre><code>if (!this.comparePassword(userSignDto.password, user.password)) return null;
+//  ↑ comparePassword é async: isto testa uma Promise, que é sempre truthy</code></pre>
+            <p>
+              <code>!Promise</code> é sempre <code>false</code>, então o <code>return null</code>
+              nunca executa e <code>checkPassword</code> devolve o usuário independentemente da
+              senha. <strong>Basta saber um username para entrar na conta.</strong>
+            </p>
+            <p>
+              É exatamente a mesma classe de erro do §10.1 do legado — um <code>await</code>
+              faltando dentro de um <code>if</code> — só que agora no caminho de autenticação.
+              Reproduzido isoladamente: com a comparação forçada a <code>false</code>, a função
+              ainda devolve <em>aceito</em>.
+            </p>
+          </div>
+        </div>
+
+        <div class="finding" style="--dot: var(--sev-bug);">
+          <div class="fnum">02</div>
+          <div class="fbody">
+            <div class="ftitle">O <code>sub</code> do JWT é <code>undefined</code></div>
+            <div class="loc">user.schema.ts:8 — a prop <code>id</code> sombreia o virtual do Mongoose</div>
+<pre><code>@Prop({ type: String, readonly: true })
+id: string;                       // nunca recebe valor
+
+// auth.service.ts
+const jwtPayload = { sub: user.id, username: user.username };</code></pre>
+            <p>
+              O Mongoose expõe um virtual <code>id</code> que devolve <code>_id</code> como string —
+              <strong>a menos que o schema declare um path chamado <code>id</code></strong>, e aí o
+              path real vence. Testado com o schema atual: <code>doc.id</code> devolve
+              <code>undefined</code>, enquanto o mesmo schema sem a prop devolve o
+              <code>_id</code> corretamente.
+            </p>
+            <p>
+              Consequência: todo token emitido carrega <code>sub: undefined</code>. A correção é
+              remover a prop e deixar o virtual trabalhar.
+            </p>
+          </div>
+        </div>
+
+        <div class="note warn">
+          <span class="note-label">Por que nada disso apareceu</span>
+          <p>
+            A <code>JwtStrategy</code> recebe o <em>payload</em> do token —
+            <code>{ sub, username }</code> — mas está tipada como <code>UserSignDto</code> e o
+            repassa para <code>checkPassword</code>, onde <code>password</code> é
+            <code>undefined</code>. E <code>bcrypt.compare(undefined, hash)</code> rejeita com
+            <em>“data and hash arguments required”</em>.
+          </p>
+          <p>
+            Ou seja: <strong>o guard só não explode porque o bug nº 1 impede que o resultado seja
+            aguardado.</strong> Consertar o <code>await</code> sozinho vai derrubar a validação do
+            JWT. Os dois precisam ser corrigidos juntos — e a estratégia deveria confiar na
+            assinatura do token, não reconsultar o banco e refazer bcrypt a cada requisição.
+          </p>
+        </div>
+
+        <div class="sev-head" style="--dot: var(--sev-arch);">
+          Arquitetura e configuração <span class="count">5 itens</span>
+        </div>
+
+        <div class="finding" style="--dot: var(--sev-arch);">
+          <div class="fnum">03</div>
+          <div class="fbody">
+            <div class="ftitle">O JWT expira em 60 segundos</div>
+            <div class="loc">auth.module.ts:16 — <code>signOptions: { expiresIn: '60s' }</code></div>
+            <p>
+              O legado usava sete dias. Sessenta segundos tem cara de sobra de teste — inutilizável
+              na prática, e sem refresh token para compensar.
+            </p>
+          </div>
+        </div>
+
+        <div class="finding" style="--dot: var(--sev-arch);">
+          <div class="fnum">04</div>
+          <div class="fbody">
+            <div class="ftitle">Autenticação por Bearer apenas</div>
+            <p>
+              <code>ExtractJwt.fromAuthHeaderAsBearerToken()</code> substituiu o extractor que tentava
+              cookie e caía para header (§9). O <code>cookie-parser</code> está comentado como TODO no
+              <code>main.ts</code>. Um cliente de navegador perdeu o caminho httpOnly.
+            </p>
+          </div>
+        </div>
+
+        <div class="finding" style="--dot: var(--sev-arch);">
+          <div class="fnum">05</div>
+          <div class="fbody">
+            <div class="ftitle">Nenhuma rota é protegida</div>
+            <p>
+              <code>JwtAuthGuard</code> existe em <code>utils/guards/</code> mas
+              <code>@UseGuards</code> não aparece em lugar nenhum da base. O caminho autenticado
+              inteiro está, hoje, sem exercício.
+            </p>
+          </div>
+        </div>
+
+        <div class="finding" style="--dot: var(--sev-arch);">
+          <div class="fnum">06</div>
+          <div class="fbody">
+            <div class="ftitle">CORS desapareceu</div>
+            <p>
+              O legado tinha <code>enableCors</code> com <code>CORS_ORIGIN</code> e
+              <code>credentials: true</code>. O <code>main.ts</code> atual não configura nada — a API
+              só responde a mesma origem.
+            </p>
+          </div>
+        </div>
+
+        <div class="finding" style="--dot: var(--sev-arch);">
+          <div class="fnum">07</div>
+          <div class="fbody">
+            <div class="ftitle">A checagem de duplicidade virou racy</div>
+<pre><code>if (await this.findOne(username))
+  throw new ConflictException('User already exists');</code></pre>
+            <p>
+              O legado deixava o índice único do Mongo decidir e traduzia o erro
+              <code>11000</code> — atômico e correto. A reescrita faz uma consulta antes, o que abre
+              janela de corrida entre a leitura e a escrita, e ainda torna o
+              <code>MongoExceptionFilter</code> quase inalcançável.
+            </p>
+            <p>
+              Some-se a isso que o filtro faz <code>throw</code> de dentro do <code>catch()</code>:
+              exceções lançadas por um filter não reentram na cadeia de filters, então esse caminho
+              escapa do envelope JSON padronizado. Vale confirmar em runtime quando houver
+              como reproduzir a corrida.
+            </p>
+          </div>
+        </div>
+
+        <div class="sev-head" style="--dot: var(--sev-cosm);">
+          Pontas soltas <span class="count">4 itens</span>
+        </div>
+
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Onde</th><th>O quê</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><code>jwt.strategy.ts:19</code></td>
+                <td><code>console.log(userSignDto)</code> logando o payload a cada requisição autenticada</td>
+              </tr>
+              <tr>
+                <td><code>users.service.ts:11</code></td>
+                <td><code>logger: Logger;</code> declarado, nunca instanciado, nunca usado</td>
+              </tr>
+              <tr>
+                <td><code>users.service.ts:36</code></td>
+                <td><code>new this.userModel(...)</code> seguido de <code>this.userModel.create(user)</code> — o documento é construído duas vezes</td>
+              </tr>
+              <tr>
+                <td><code>utils/interpectors/</code></td>
+                <td>Diretório com erro de grafia (<em>interpectors</em>), e o <code>Reflector</code> é instanciado à mão dentro do <code>intercept()</code> em vez de injetado — consequência de registrar o interceptor com <code>new</code> no <code>main.ts</code> em vez de via <code>APP_INTERCEPTOR</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ============ 15 ============ -->
+      <section id="s15">
+        <h2><span class="n">15</span><span>Caminho até a paridade</span></h2>
+
+        <p>
+          Na ordem em que eu atacaria — cada bloco desbloqueia o seguinte.
+        </p>
+
+        <ol class="decide">
+          <li>
+            <div>
+              <strong>Fechar o buraco de autenticação.</strong> O <code>await</code> em
+              <code>comparePassword</code> e a prop <code>id</code> do schema, juntos, mais reescrever
+              <code>JwtStrategy.validate</code> para confiar no payload assinado em vez de reconsultar
+              o banco. Depois disso, <code>expiresIn</code> volta para algo utilizável.
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Provar o caminho autenticado.</strong> Trazer o <code>/users/me</code> de volta
+              e pôr o <code>JwtAuthGuard</code> nele. É a menor rota possível que exercita
+              guard, strategy, envelope e filtros de ponta a ponta.
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Escrever os primeiros testes.</strong> O legado morreu com zero cobertura e a
+              reescrita está repetindo isso. Os dois bugs críticos acima morreriam num único teste de
+              “senha errada deve falhar”. O <code>test:e2e</code> também está quebrado por
+              configuração — falta <code>moduleNameMapper</code> para os imports <code>src/…</code>.
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Ligar <code>strictNullChecks</code>.</strong> Com 484 linhas o custo é baixo;
+              com o módulo de games escrito, será alto. É agora ou nunca.
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Decidir sobre o chess.js</strong> (§11.1) antes de escrever a primeira linha de
+              <code>games</code> — a escolha define o schema inteiro.
+            </div>
+          </li>
+          <li>
+            <div>
+              <strong>Portar <code>games</code>, depois <code>sse</code>.</strong> Com a Parte I como
+              especificação: máquina de estados do §7, relógio do §8.1, eventos do §8.2, e as nove
+              dívidas que voltam a valer segundo o §13.
+            </div>
+          </li>
+        </ol>
+
+        <p class="colophon">
+          Parte I reconstruída de <code>80c7480</code>, o último commit antes de <code>eae6b37</code>
+          — “I did what HAD to be done…”, 31 de janeiro de 2024. Parte II lida de
+          <code>e00c87f</code> em 25 de julho de 2026. Nada aqui foi inferido: tudo vem da leitura
+          dos 42 arquivos apagados e dos 22 atuais, e os dois bugs críticos do §14 foram reproduzidos
+          em execução.
+        </p>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<button class="theme-btn" id="themeBtn" type="button" aria-label="Alternar tema claro e escuro">Tema</button>
+
+<script>
+  (function () {
+    // ---- alternador de tema ----
+    var root = document.documentElement;
+    var btn = document.getElementById('themeBtn');
+
+    btn.addEventListener('click', function () {
+      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var current = root.getAttribute('data-theme') || (prefersDark ? 'dark' : 'light');
+      root.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+    });
+
+    // ---- destaque da seção ativa no índice ----
+    var links = Array.prototype.slice.call(document.querySelectorAll('.rail a'));
+    var byId = {};
+    links.forEach(function (a) { byId[a.getAttribute('href').slice(1)] = a; });
+
+    var visible = new Set();
+
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) visible.add(e.target.id);
+        else visible.delete(e.target.id);
+      });
+
+      var order = Object.keys(byId);
+      var top = order.find(function (id) { return visible.has(id); });
+
+      links.forEach(function (a) { a.classList.remove('on'); });
+      if (top && byId[top]) byId[top].classList.add('on');
+    }, { rootMargin: '-10% 0px -70% 0px', threshold: 0 });
+
+    document.querySelectorAll('section[id]').forEach(function (s) { observer.observe(s); });
+  })();
+</script>

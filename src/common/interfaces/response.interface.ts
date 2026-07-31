@@ -3,12 +3,15 @@ export interface BaseHttpResponse {
   timestamp: string;
   path: string;
   message: string;
+  requestId: string;
 }
+
 export interface ErrorResponse extends BaseHttpResponse {
   success: false;
-  error?: any;
+  errors?: string[];
 }
-export interface SuccessResponse<T = any> extends BaseHttpResponse {
+
+export interface SuccessResponse<T = unknown> extends BaseHttpResponse {
   success: true;
   data: T;
 }
